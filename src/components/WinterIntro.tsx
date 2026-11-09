@@ -1,9 +1,11 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
 
 const STORAGE_KEY = 'zenkai_winter_intro_2026'
-const INTRO_DURATION_MS = 3800
+const INTRO_DURATION_MS = 4800
+
+const FULL_TITLE = 'Welcome to Winter'
+const FULL_TAGLINE = 'The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.'
 
 interface WinterIntroProps {
   onFinish: () => void
@@ -11,16 +13,58 @@ interface WinterIntroProps {
 
 /**
  * Animated Winter Intro sequence shown before the landing page on first visit.
- * Clean, mature 2D anime aesthetic with refined seasonal typography,
- * smooth falling snow atmosphere, and professional studio key art.
+ * Features a joyful 2D female anime key visual, typewriter writing text effects,
+ * snowy cursive font, and clean seasonal atmosphere.
  */
 export function WinterIntro({ onFinish }: WinterIntroProps) {
+  const [titleChars, setTitleChars] = useState(0)
+  const [taglineChars, setTaglineChars] = useState(0)
+  const [taglineStarted, setTaglineStarted] = useState(false)
+
   const finish = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, 'true')
     } catch {}
     onFinish()
   }, [onFinish])
+
+  // Typewriter effect for Title ("Welcome to Winter")
+  useEffect(() => {
+    const startDelay = window.setTimeout(() => {
+      const interval = window.setInterval(() => {
+        setTitleChars((prev) => {
+          if (prev >= FULL_TITLE.length) {
+            window.clearInterval(interval)
+            setTaglineStarted(true)
+            return prev
+          }
+          return prev + 1
+        })
+      }, 45)
+      return () => window.clearInterval(interval)
+    }, 280)
+
+    return () => window.clearTimeout(startDelay)
+  }, [])
+
+  // Typewriter effect for Tagline
+  useEffect(() => {
+    if (!taglineStarted) return
+    const pauseBeforeTagline = window.setTimeout(() => {
+      const interval = window.setInterval(() => {
+        setTaglineChars((prev) => {
+          if (prev >= FULL_TAGLINE.length) {
+            window.clearInterval(interval)
+            return prev
+          }
+          return prev + 1
+        })
+      }, 24)
+      return () => window.clearInterval(interval)
+    }, 180)
+
+    return () => window.clearTimeout(pauseBeforeTagline)
+  }, [taglineStarted])
 
   // Auto-transition to landing page after sequence completes
   useEffect(() => {
@@ -41,6 +85,13 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
       window.removeEventListener('touchmove', onScroll)
     }
   }, [finish])
+
+  const typedTitle = FULL_TITLE.slice(0, titleChars)
+  const titlePart1 = typedTitle.slice(0, 11) // "Welcome to "
+  const titlePart2 = typedTitle.slice(11)     // "Winter"
+
+  const typedTagline = FULL_TAGLINE.slice(0, taglineChars)
+  const isTaglineComplete = taglineChars >= FULL_TAGLINE.length
 
   return (
     <motion.aside
@@ -64,7 +115,7 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
       />
 
       <div className="relative z-10 flex flex-col items-center max-w-xl px-4">
-        {/* Professional 2D Winter Anime Key Visual */}
+        {/* Joyful 2D Winter Anime Key Visual */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9, y: 18 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -90,7 +141,7 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           </motion.div>
         </motion.div>
 
-        {/* Kanji & Seasonal Tag with Clean Modern Font */}
+        {/* Kanji & Seasonal Tag without any starry icon */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -101,33 +152,34 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           <span>冬の季節</span>
           <span className="text-sky-400">•</span>
           <span>ZENKAI WINTER 2026</span>
-          <Sparkles className="size-3 text-sky-300" />
         </motion.div>
 
-        {/* Main Animated Headline in Snowy Font */}
-        <motion.h1
-          initial={{ opacity: 0, scale: 0.92, y: 14 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
+        {/* Main Animated Headline in Snowy Font with Typewriter Writing Effect */}
+        <h1
+          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)] min-h-[1.25em]"
           style={{ fontFamily: "'Mountains of Christmas', 'Sniglet', cursive" }}
         >
-          Welcome to{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
-            Winter
-          </span>
-        </motion.h1>
+          {titlePart1}
+          {titlePart2 && (
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
+              {titlePart2}
+            </span>
+          )}
+          {!taglineStarted && (
+            <span className="inline-block w-[3px] h-[0.75em] bg-sky-300 ml-1.5 align-middle animate-pulse" />
+          )}
+        </h1>
 
-        {/* Cozy Tagline in Comfortaa */}
-        <motion.p
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, delay: 0.5 }}
-          className="mt-2.5 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed"
+        {/* Cozy Tagline in Comfortaa with Typewriter Writing Effect */}
+        <p
+          className="mt-2.5 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed min-h-[2.8rem]"
           style={{ fontFamily: "'Comfortaa', sans-serif" }}
         >
-          The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.
-        </motion.p>
+          {typedTagline}
+          {taglineStarted && !isTaglineComplete && (
+            <span className="inline-block w-[2px] h-[0.9em] bg-sky-300 ml-1 align-middle animate-pulse" />
+          )}
+        </p>
 
         {/* Bottom Skip Hint */}
         <motion.p
