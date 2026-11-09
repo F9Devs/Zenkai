@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 
 interface InteractiveSnowfallProps {
-  /** Total number of snowflakes on screen. Default reduced by 40% to 50 flakes. */
+  /** Total number of snowflakes on screen. Default 50 flakes. */
   count?: number
   zIndex?: number
-  /** Fall speed multiplier. Default reduced by 30% to 0.35 for a serene, gentle drift. */
+  /** Fall speed multiplier. Default 0.24 for an ultra-calm, gentle winter drift. */
   speedMultiplier?: number
 }
 
@@ -16,9 +16,13 @@ interface Flake {
   y: number
   size: number
   baseSpeed: number
+  driftX: number
   swaySpeed: number
   swayAmp: number
   swayPhase: number
+  flutterSpeed: number
+  flutterAmp: number
+  flutterPhase: number
   opacity: number
   rotation: number
   spinSpeed: number
@@ -51,10 +55,10 @@ function drawHexagon(ctx: CanvasRenderingContext2D, r: number) {
   ctx.closePath()
 }
 
-/** Pre-renders crystalline textured snowflake sprites to offscreen canvases */
+/** Pre-renders small, delicate, crystalline textured snowflake sprites */
 function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
-  const dim = Math.ceil(size * dpr * 2.2)
+  const dim = Math.ceil(size * dpr * 2.3 + 4)
   canvas.width = canvas.height = dim
   const ctx = canvas.getContext('2d')
   if (!ctx) return canvas
@@ -70,7 +74,7 @@ function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanv
     // Classic 6-fold barbed snowflake
     ctx.strokeStyle = color
     ctx.fillStyle = color
-    ctx.lineWidth = Math.max(1, r * 0.085)
+    ctx.lineWidth = Math.max(0.7, r * 0.09)
     ctx.lineCap = 'round'
 
     ctx.beginPath()
@@ -94,16 +98,16 @@ function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanv
   } else if (kind === 'dendrite') {
     // Intricate recursive fractal branching crystal
     ctx.strokeStyle = color
-    ctx.lineWidth = Math.max(1, r * 0.06)
+    ctx.lineWidth = Math.max(0.65, r * 0.075)
     ctx.lineCap = 'round'
 
     const branch = (len: number, depth: number) => {
       ctx.moveTo(0, 0)
       ctx.lineTo(0, -len)
       if (depth > 0) {
-        const subPos = [0.28, 0.46, 0.63, 0.8]
+        const subPos = [0.35, 0.65]
         for (const p of subPos) {
-          const subLen = len * (0.42 - p * 0.3)
+          const subLen = len * (0.42 - p * 0.25)
           for (const dir of [-1, 1]) {
             ctx.save()
             ctx.translate(0, -len * p)
@@ -116,11 +120,11 @@ function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanv
     }
 
     ctx.beginPath()
-    rotate6(ctx, () => branch(r * 0.95, 2))
+    rotate6(ctx, () => branch(r * 0.95, 1))
     ctx.stroke()
 
     ctx.beginPath()
-    drawHexagon(ctx, r * 0.14)
+    drawHexagon(ctx, r * 0.15)
     ctx.stroke()
   } else if (kind === 'plate') {
     // Hexagonal crystal facet plate
@@ -132,16 +136,16 @@ function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanv
     ctx.globalAlpha = 0.35
     ctx.fill()
     ctx.globalAlpha = 1
-    ctx.lineWidth = Math.max(1, r * 0.07)
+    ctx.lineWidth = Math.max(0.65, r * 0.08)
     ctx.stroke()
 
     ctx.beginPath()
     drawHexagon(ctx, r * 0.48)
-    ctx.lineWidth = Math.max(1, r * 0.05)
+    ctx.lineWidth = Math.max(0.5, r * 0.06)
     ctx.stroke()
 
     ctx.beginPath()
-    ctx.lineWidth = Math.max(1, r * 0.04)
+    ctx.lineWidth = Math.max(0.5, r * 0.05)
     rotate6(ctx, () => {
       ctx.moveTo(0, -r * 0.48)
       ctx.lineTo(0, -r * 0.88)
@@ -165,15 +169,16 @@ function createFlakeSprite(kind: FlakeKind, size: number, dpr: number): HTMLCanv
 
 /**
  * Textured Interactive Snowfall Engine.
- * - Restored textured snowflake crystals: Classic, Dendrite, Plate, and Soft bokeh.
- * - 40% reduced intensity (default 50 flakes) for a clean, non-overcrowded look.
- * - 30% reduced speed (0.35x multiplier) for a peaceful, cozy winter drift.
+ * - Small, delicate, realistic snowflake sizes (2.5px to 7.5px radius).
+ * - Textured artwork: Classic crystals, Dendrites, Hexagonal plates, and Soft bokeh.
+ * - Calmer, peaceful speed (speedMultiplier ~0.24) with frame-rate independent delta time.
+ * - Primary downward fall with gentle, uneven left or right meandering ("r or l unevenly, not too much").
  * - 3-layer parallax depth of field and soft cursor air-current physics.
  */
 export function InteractiveSnowfall({
   count = 50,
   zIndex = 20,
-  speedMultiplier = 0.35,
+  speedMultiplier = 0.24,
 }: InteractiveSnowfallProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
@@ -196,8 +201,8 @@ export function InteractiveSnowfall({
 
     window.addEventListener('resize', resize)
 
-    // Pre-cache textured sprite canvases for crisp rendering & max performance
-    const spriteSizes = [10, 16, 24, 34]
+    // Pre-cache small, delicate textured sprite canvases (radii: 2.5px, 4px, 5.5px, 7.5px)
+    const spriteSizes = [2.5, 4, 5.5, 7.5]
     const spriteKinds: FlakeKind[] = ['classic', 'dendrite', 'plate', 'soft']
     const sprites: Record<string, HTMLCanvasElement> = {}
 
@@ -237,37 +242,37 @@ export function InteractiveSnowfall({
     window.addEventListener('pointermove', onPointerMove, { passive: true })
     window.addEventListener('pointerleave', onPointerLeave, { passive: true })
 
-    // Generate 3 layers of flakes with textured artwork
+    // Generate 3 layers of flakes with delicate sizes, calm speed, and uneven left/right drift
     const flakes: Flake[] = []
     for (let i = 0; i < count; i++) {
       const rand = Math.random()
       let layer: LayerType = 'mid'
-      let size = 16
-      let baseSpeed = 0.55
-      let opacity = 0.65
-      let parallaxFactor = 16
+      let size = 4
+      let baseSpeed = 0.35
+      let opacity = 0.6
+      let parallaxFactor = 14
 
       if (rand < 0.45) {
-        // Far layer: distant, smaller, slower
+        // Far layer: distant, tiny, delicate (size 2.5)
         layer = 'far'
-        size = 10
-        baseSpeed = (0.22 + Math.random() * 0.3) * speedMultiplier
-        opacity = 0.25 + Math.random() * 0.25
-        parallaxFactor = 8
-      } else if (rand < 0.82) {
-        // Mid layer: crisp textured crystal flakes
+        size = 2.5
+        baseSpeed = (0.24 + Math.random() * 0.2) * speedMultiplier
+        opacity = 0.25 + Math.random() * 0.22
+        parallaxFactor = 6
+      } else if (rand < 0.85) {
+        // Mid layer: crisp crystalline snowflakes (size 4 or 5.5)
         layer = 'mid'
-        size = Math.random() < 0.5 ? 16 : 24
-        baseSpeed = (0.42 + Math.random() * 0.45) * speedMultiplier
-        opacity = 0.55 + Math.random() * 0.35
-        parallaxFactor = 20
+        size = Math.random() < 0.5 ? 4 : 5.5
+        baseSpeed = (0.45 + Math.random() * 0.3) * speedMultiplier
+        opacity = 0.5 + Math.random() * 0.3
+        parallaxFactor = 14
       } else {
-        // Close layer: large, soft foreground flakes
+        // Close layer: slightly larger foreground flake (size 7.5)
         layer = 'close'
-        size = 34
-        baseSpeed = (0.75 + Math.random() * 0.65) * speedMultiplier
-        opacity = 0.28 + Math.random() * 0.35
-        parallaxFactor = 38
+        size = 7.5
+        baseSpeed = (0.7 + Math.random() * 0.35) * speedMultiplier
+        opacity = 0.35 + Math.random() * 0.3
+        parallaxFactor = 24
       }
 
       // Pick textured artwork
@@ -283,12 +288,17 @@ export function InteractiveSnowfall({
         y: Math.random() * height,
         size,
         baseSpeed,
-        swaySpeed: 0.0006 + Math.random() * 0.0014,
-        swayAmp: 0.35 + Math.random() * 0.9,
+        // Individual uneven left/right drift bias (-0.08 to +0.08)
+        driftX: (Math.random() - 0.5) * 0.16,
+        swaySpeed: 0.0006 + Math.random() * 0.001,
+        swayAmp: 0.14 + Math.random() * 0.2,
         swayPhase: Math.random() * Math.PI * 2,
+        flutterSpeed: 0.0014 + Math.random() * 0.0018,
+        flutterAmp: 0.05 + Math.random() * 0.1,
+        flutterPhase: Math.random() * Math.PI * 2,
         opacity,
         rotation: Math.random() * Math.PI * 2,
-        spinSpeed: (Math.random() - 0.5) * 0.012,
+        spinSpeed: (Math.random() - 0.5) * 0.006,
         vx: 0,
         vy: 0,
         kind,
@@ -297,22 +307,30 @@ export function InteractiveSnowfall({
       })
     }
 
+    let lastTime = performance.now()
+
     const render = (currentTime: number) => {
       ctx.clearRect(0, 0, width, height)
+
+      // Normalize delta time to 60fps (16.667ms per frame)
+      const dtMs = currentTime - lastTime
+      lastTime = currentTime
+      const delta = Math.min(Math.max(dtMs / 16.667, 0.1), 2.0)
 
       // Smooth lerp for mouse parallax
       mouse.normalizedX += (mouse.targetNormX - mouse.normalizedX) * 0.04
       mouse.normalizedY += (mouse.targetNormY - mouse.normalizedY) * 0.04
 
-      const cursorInfluenceRadius = 120
+      const cursorInfluenceRadius = 90
       const cursorRadiusSq = cursorInfluenceRadius * cursorInfluenceRadius
 
       for (let i = 0; i < flakes.length; i++) {
         const f = flakes[i]
 
-        // Natural horizontal wind drift and gentle sway
+        // Organic falling motion: primarily downward, with subtle uneven left or right meandering
         const sway = Math.sin(currentTime * f.swaySpeed + f.swayPhase) * f.swayAmp
-        const windDrift = 0.12
+        const flutter = Math.cos(currentTime * f.flutterSpeed + f.flutterPhase) * f.flutterAmp
+        const horizontalMotion = f.driftX + sway + flutter
 
         // Gentle cursor air-current deflection (soft and peaceful)
         if (mouse.active) {
@@ -322,35 +340,37 @@ export function InteractiveSnowfall({
 
           if (distSq < cursorRadiusSq && distSq > 0) {
             const dist = Math.sqrt(distSq)
-            const force = Math.pow(1 - dist / cursorInfluenceRadius, 2) * 0.42
+            const force = Math.pow(1 - dist / cursorInfluenceRadius, 2) * 0.28
             f.vx += (dx / dist) * force
-            f.vy += (dy / dist) * force * 0.5
+            f.vy += (dy / dist) * force * 0.35
           }
         }
 
         // Smooth velocity damping
-        f.vx *= 0.96
-        f.vy *= 0.96
+        f.vx *= Math.pow(0.95, delta)
+        f.vy *= Math.pow(0.95, delta)
 
-        // Position update
-        f.x += sway + windDrift + f.vx
-        f.y += f.baseSpeed + f.vy
-        f.rotation += f.spinSpeed
+        // Position update: vertical fall is dominant, with gentle uneven L/R horizontal motion
+        f.x += (horizontalMotion + f.vx) * delta
+        f.y += (f.baseSpeed + f.vy) * delta
+        f.rotation += f.spinSpeed * delta
 
-        // Wrap around boundaries
-        if (f.y > height + 35) {
-          f.y = -35
+        // Wrap around boundaries smoothly
+        if (f.y > height + 20) {
+          f.y = -20
           f.x = Math.random() * width
           f.vx = 0
           f.vy = 0
-        } else if (f.y < -45) {
-          f.y = height + 20
+          // Refresh drift bias slightly when recycling
+          f.driftX = (Math.random() - 0.5) * 0.16
+        } else if (f.y < -30) {
+          f.y = height + 15
         }
 
-        if (f.x > width + 35) {
-          f.x = -35
-        } else if (f.x < -35) {
-          f.x = width + 30
+        if (f.x > width + 20) {
+          f.x = -20
+        } else if (f.x < -20) {
+          f.x = width + 20
         }
 
         // Apply layer parallax offset based on cursor position
@@ -367,7 +387,7 @@ export function InteractiveSnowfall({
           ctx.translate(drawX, drawY)
           ctx.rotate(f.rotation)
 
-          const drawDim = (sprite.width / dpr)
+          const drawDim = sprite.width / dpr
           ctx.drawImage(sprite, -drawDim / 2, -drawDim / 2, drawDim, drawDim)
           ctx.restore()
         }

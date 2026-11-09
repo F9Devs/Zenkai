@@ -108,7 +108,7 @@ export default function LandingPage() {
 
   return (
     <main className="relative flex min-h-svh flex-col bg-background text-foreground overflow-x-hidden">
-      <InteractiveSnowfall count={50} speedMultiplier={0.35} />
+      <InteractiveSnowfall count={50} speedMultiplier={0.24} />
       <AnimatePresence mode="wait">
         {showIntro ? (
           <WinterIntro key="winter-intro" onFinish={() => setShowIntro(false)} />
