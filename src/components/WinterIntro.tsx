@@ -104,12 +104,13 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           <Sparkles className="size-3 text-sky-300" />
         </motion.div>
 
-        {/* Main Animated Headline in Bold Display Typography */}
+        {/* Main Animated Headline in Snowy Font */}
         <motion.h1
-          initial={{ opacity: 0, scale: 0.94, y: 12 }}
+          initial={{ opacity: 0, scale: 0.92, y: 14 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ duration: 0.75, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-2 font-display text-4xl sm:text-6xl font-black tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
+          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
+          style={{ fontFamily: "'Mountains of Christmas', 'Sniglet', cursive" }}
         >
           Welcome to{' '}
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
