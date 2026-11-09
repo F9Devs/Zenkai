@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Snowflake, Sparkles } from 'lucide-react'
+import { Snowflake, Sparkles, Tv, Coffee, BookOpen, Film } from 'lucide-react'
 
 const STORAGE_KEY = 'zenkai_winter_intro_2026'
-const INTRO_DURATION_MS = 2500
+const INTRO_DURATION_MS = 3800
+
+const INFO_PILLS = [
+  { icon: Tv, label: 'Winter Anime in 4K' },
+  { icon: Coffee, label: 'Cozy Manga Reader' },
+  { icon: BookOpen, label: 'Fireside Novels' },
+  { icon: Film, label: 'Cinema & Series' },
+]
 
 /**
- * High-end cinematic Winter Intro Animation for first-time visitors.
- * Plays a smooth, atmospheric winter reveal sequence on landing, then
- * seamlessly dissolves to reveal the landing page.
- * Can be skipped immediately with a click, tap, or keypress.
+ * Transparent Winter Intro Animation overlay.
+ * Completely transparent background with zero dark fills, allowing the landing page
+ * and falling snow to be fully visible while glowing animated seasonal text and info float in.
  */
 export function WinterIntro() {
   const [active, setActive] = useState(false)
@@ -32,154 +38,155 @@ export function WinterIntro() {
     }
   }, [])
 
-  // Allow manual replay via custom event
+  // Manual replay listener
   useEffect(() => {
     const handleReplay = () => setActive(true)
     window.addEventListener('zenkai:replay-winter-intro', handleReplay)
     return () => window.removeEventListener('zenkai:replay-winter-intro', handleReplay)
   }, [])
 
-  // Auto-dismiss after sequence finishes
+  // Auto-dismiss after sequence
   useEffect(() => {
     if (!active) return
     const timer = window.setTimeout(finish, INTRO_DURATION_MS)
     return () => window.clearTimeout(timer)
   }, [active, finish])
 
-  // Lock body scroll and allow instant skip on any keypress
+  // Dismiss on any key or scroll
   useEffect(() => {
     if (!active) return
     const onKey = () => finish()
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const onScroll = () => finish()
     window.addEventListener('keydown', onKey)
+    window.addEventListener('wheel', onScroll, { passive: true })
+    window.addEventListener('touchmove', onScroll, { passive: true })
     return () => {
-      document.body.style.overflow = prevOverflow
       window.removeEventListener('keydown', onKey)
+      window.removeEventListener('wheel', onScroll)
+      window.removeEventListener('touchmove', onScroll)
     }
   }, [active, finish])
 
   return (
     <AnimatePresence>
       {active && (
-        <motion.div
-          key="winter-intro-overlay"
-          initial={{ opacity: 1 }}
+        <motion.aside
+          key="winter-intro-transparent"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
           exit={{
             opacity: 0,
-            scale: 1.06,
-            filter: 'blur(14px)',
-            transition: { duration: 0.65, ease: [0.22, 1, 0.36, 1] },
+            y: -24,
+            filter: 'blur(10px)',
+            transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
           }}
           onClick={finish}
-          className="fixed inset-0 z-[200] flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-[#030712] select-none"
-          aria-label="Winter intro animation. Click to skip."
+          className="fixed inset-0 z-[160] flex cursor-pointer flex-col items-center justify-center p-4 sm:p-6 bg-transparent select-none"
+          aria-label="Winter intro animation. Tap anywhere to dismiss."
         >
-          {/* Deep Winter Aurora / Ambient Glow */}
+          {/* Subtle Ambient Ice Radial Sheen (purely soft highlight, transparent background) */}
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.22)_0%,rgba(99,102,241,0.12)_35%,rgba(3,7,18,0.95)_75%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.12)_0%,transparent_60%)]"
           />
 
-          {/* Frosted Shimmer Sweep */}
-          <motion.div
-            aria-hidden
-            initial={{ x: '-100%', opacity: 0 }}
-            animate={{ x: '100%', opacity: [0, 0.45, 0] }}
-            transition={{ duration: 1.8, delay: 0.4, ease: 'easeInOut' }}
-            className="pointer-events-none absolute inset-y-0 w-1/2 -skew-x-12 bg-gradient-to-r from-transparent via-sky-300/20 to-transparent"
-          />
-
-          {/* Central Animated Composition */}
-          <div className="relative z-10 flex flex-col items-center px-6 text-center">
-            {/* Expanding Frost Halo Rings */}
-            <div className="relative mb-6 flex items-center justify-center">
-              <motion.div
-                initial={{ scale: 0.6, opacity: 0 }}
-                animate={{ scale: [0.8, 1.35, 1.55], opacity: [0.6, 0.25, 0] }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
-                className="absolute size-28 rounded-full border border-sky-400/40"
-              />
-              <motion.div
-                initial={{ scale: 0.5, opacity: 0 }}
-                animate={{ scale: [0.6, 1.15, 1.3], opacity: [0.7, 0.35, 0] }}
-                transition={{ duration: 2, delay: 0.35, repeat: Infinity, ease: 'easeOut' }}
-                className="absolute size-24 rounded-full border border-cyan-300/30"
-              />
-
-              {/* Glowing Snowflake Emblem */}
-              <motion.div
-                initial={{ scale: 0.4, rotate: -90, opacity: 0 }}
-                animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
-                className="relative flex size-16 items-center justify-center rounded-2xl border border-sky-400/40 bg-gradient-to-b from-sky-400/20 to-indigo-950/60 shadow-[0_0_36px_rgba(56,189,248,0.45)] backdrop-blur-md"
-              >
-                <motion.div
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 16, ease: 'linear' }}
-                  className="flex items-center justify-center"
-                >
-                  <Snowflake className="size-8 text-sky-200 drop-shadow-[0_0_12px_rgba(56,189,248,0.8)]" />
-                </motion.div>
-                <Sparkles className="absolute -right-1 -top-1 size-3.5 text-sky-300 animate-pulse" />
-              </motion.div>
-            </div>
-
-            {/* Kanji Accent */}
-            <motion.span
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 0.65, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
-              className="text-xs font-medium tracking-[0.5em] text-sky-300/70"
-            >
-              冬 · WINTER 2026
-            </motion.span>
-
-            {/* Main Brand Title with Icy Gradient & Glow */}
-            <motion.h1
-              initial={{ opacity: 0, scale: 0.9, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="mt-2 font-display text-4xl sm:text-6xl font-black tracking-[0.18em] text-transparent bg-clip-text bg-gradient-to-r from-sky-100 via-sky-200 to-indigo-200 drop-shadow-[0_0_28px_rgba(56,189,248,0.35)]"
-            >
-              ZENKAI
-            </motion.h1>
-
-            {/* Elegant Subtitle */}
+          {/* Central Floating Animated Elements */}
+          <div className="relative z-10 flex flex-col items-center text-center max-w-xl">
+            {/* Rotating Crystalline Snowflake with glowing aura */}
             <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.6 }}
-              className="mt-3 flex items-center gap-2"
+              initial={{ scale: 0.4, rotate: -60, opacity: 0 }}
+              animate={{ scale: 1, rotate: 0, opacity: 1 }}
+              transition={{ duration: 0.75, ease: [0.16, 1, 0.3, 1] }}
+              className="relative mb-3 flex items-center justify-center"
             >
-              <div className="h-[1px] w-8 bg-gradient-to-r from-transparent to-sky-400/60" />
-              <p className="text-xs sm:text-sm font-semibold tracking-widest text-sky-200/90 uppercase">
-                Welcome to Winter
-              </p>
-              <div className="h-[1px] w-8 bg-gradient-to-l from-transparent to-sky-400/60" />
+              {/* Outer pulsing ring - transparent */}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: [0.9, 1.4, 1.6], opacity: [0.6, 0.2, 0] }}
+                transition={{ duration: 2.2, repeat: Infinity, ease: 'easeOut' }}
+                className="absolute size-24 rounded-full border border-sky-400/40"
+              />
+
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 18, ease: 'linear' }}
+                className="flex items-center justify-center"
+              >
+                <Snowflake className="size-12 sm:size-14 text-sky-300 drop-shadow-[0_0_18px_rgba(56,189,248,0.9)]" />
+              </motion.div>
+              <Sparkles className="absolute -right-2 -top-1 size-4 text-sky-200 animate-pulse drop-shadow-[0_0_8px_rgba(56,189,248,0.8)]" />
             </motion.div>
 
-            {/* Atmospheric Season Tagline */}
+            {/* Kanji & Seasonal Tag */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="flex items-center gap-2 text-xs font-semibold tracking-[0.35em] text-sky-200/90 uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+            >
+              <span>冬の季節</span>
+              <span className="text-sky-400">•</span>
+              <span>WINTER 2026</span>
+            </motion.div>
+
+            {/* Main Animated Headline */}
+            <motion.h1
+              initial={{ opacity: 0, scale: 0.92, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.75, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="mt-2 font-display text-4xl sm:text-6xl font-black tracking-tight text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
+            >
+              Welcome to{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
+                Winter
+              </span>
+            </motion.h1>
+
+            {/* Seasonal Tagline */}
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.65, delay: 0.5 }}
+              className="mt-2 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md"
+            >
+              The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.
+            </motion.p>
+
+            {/* Animated Transparent Info Pills */}
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, delay: 0.65 }}
+              className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5"
+            >
+              {INFO_PILLS.map((pill, i) => {
+                const Icon = pill.icon
+                return (
+                  <motion.div
+                    key={pill.label}
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.45, delay: 0.75 + i * 0.08 }}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-sky-300/30 bg-sky-950/20 px-3.5 py-1.5 text-xs font-semibold text-sky-100 shadow-[0_0_16px_rgba(56,189,248,0.2)] backdrop-blur-sm"
+                  >
+                    <Icon className="size-3.5 text-sky-300" />
+                    <span>{pill.label}</span>
+                  </motion.div>
+                )
+              })}
+            </motion.div>
+
+            {/* Bottom Hint */}
             <motion.p
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.6 }}
-              transition={{ duration: 0.8, delay: 0.85 }}
-              className="mt-2 max-w-xs text-xs text-slate-300 sm:text-[13px]"
+              animate={{ opacity: 0.65 }}
+              transition={{ duration: 0.5, delay: 1.1 }}
+              className="mt-6 text-[11px] font-medium tracking-widest text-slate-300 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
             >
-              Cozy up with stories, manga &amp; anime.
+              click or tap anywhere to explore
             </motion.p>
           </div>
-
-          {/* Bottom Skip Indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
-            transition={{ duration: 0.5, delay: 1 }}
-            className="absolute bottom-6 flex items-center gap-1.5 text-[11px] font-medium tracking-widest text-slate-400 uppercase"
-          >
-            <span>tap or press any key to enter</span>
-          </motion.div>
-        </motion.div>
+        </motion.aside>
       )}
     </AnimatePresence>
   )
