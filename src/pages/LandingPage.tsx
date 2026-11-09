@@ -92,7 +92,7 @@ export default function LandingPage() {
 
   return (
     <main className="relative flex min-h-svh flex-col bg-background text-foreground overflow-x-hidden">
-      <Snowfall fullScreen count={110} speed={0.4} wind={0.08} sway={1.1} flake="mixed" depth={0.9} opacity={[0.25, 0.8]} zIndex={20} />
+      <Snowfall fullScreen count={75} speed={0.35} wind={0.06} sway={1.1} flake="mixed" depth={0.9} opacity={[0.18, 0.6]} zIndex={20} />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
         <Logo size={38} />
         <div className="flex items-center gap-1.5">
