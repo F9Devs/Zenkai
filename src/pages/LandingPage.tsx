@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone, Snowflake } from 'lucide-react'
 import { Snowfall } from 'falling-snow/react'
+import { WinterIntro } from '../components/WinterIntro'
 import { cn } from '../lib/utils'
 import { FadeSlideshow } from '../components/FadeSlideshow'
 import { Logo } from '../components/Logo'
@@ -93,9 +94,19 @@ export default function LandingPage() {
   return (
     <main className="relative flex min-h-svh flex-col bg-background text-foreground overflow-x-hidden">
       <Snowfall fullScreen count={75} speed={0.35} wind={0.06} sway={1.1} flake="mixed" depth={0.9} opacity={[0.18, 0.6]} zIndex={20} />
+      <WinterIntro />
       <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
         <Logo size={38} />
         <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('zenkai:replay-winter-intro'))}
+            title="Replay Winter Intro ❄️"
+            className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-200 transition-all hover:border-sky-400/50 hover:bg-sky-900/40 hover:text-white active:scale-95 shadow-[0_0_15px_rgba(56,189,248,0.12)]"
+          >
+            <Snowflake className="size-3.5 text-sky-300" />
+            <span className="hidden sm:inline">Winter Intro</span>
+          </button>
           <Link to="/api" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
             <Code2 className="size-4" />
             API
@@ -109,6 +120,12 @@ export default function LandingPage() {
       </header>
 
       <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-6 sm:px-8 lg:py-8">
+        <div className="mb-2 flex justify-center">
+          <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-950/30 px-3.5 py-1 text-xs font-semibold text-sky-200/90 shadow-[0_0_20px_rgba(56,189,248,0.12)] backdrop-blur-md">
+            <Snowflake className="size-3 text-sky-300" />
+            <span>Winter Season · Cozy Up with Zenkai</span>
+          </span>
+        </div>
         <h1 className="animate-card-in text-balance text-center font-display text-[2rem] font-black leading-[1.05] tracking-tight">What are you in the mood for?</h1>
 
         <div
