@@ -84,8 +84,8 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           >
             <img
               src="/winter/anime_character.png"
-              alt="Winter Anime Key Visual"
-              className="h-44 w-44 sm:h-56 sm:w-56 object-contain drop-shadow-[0_12px_32px_rgba(56,189,248,0.35)]"
+              alt="Happy Winter Anime Visual"
+              className="h-48 w-auto max-w-[14rem] sm:h-60 sm:max-w-[17rem] object-contain drop-shadow-[0_12px_32px_rgba(56,189,248,0.35)]"
             />
           </motion.div>
         </motion.div>
