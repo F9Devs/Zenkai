@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone, Snowflake } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Snowfall } from 'falling-snow/react'
 import { WinterIntro } from '../components/WinterIntro'
 import { cn } from '../lib/utils'
@@ -45,6 +46,13 @@ export default function LandingPage() {
   const [active, setActive] = useState<Key>('anime')
   const [picked, setPicked] = useState<Key | null>(null)
   const [now, setNow] = useState<Partial<Record<Key, string>>>({})
+  const [showIntro, setShowIntro] = useState(() => {
+    try {
+      return !localStorage.getItem('zenkai_winter_intro_2026')
+    } catch {
+      return false
+    }
+  })
   const timers = useRef<number[]>([])
 
   const clearTimers = useCallback(() => {
@@ -58,6 +66,13 @@ export default function LandingPage() {
   }, [clearTimers])
 
   useEffect(() => {
+    const handleReplay = () => setShowIntro(true)
+    window.addEventListener('zenkai:replay-winter-intro', handleReplay)
+    return () => window.removeEventListener('zenkai:replay-winter-intro', handleReplay)
+  }, [])
+
+  useEffect(() => {
+    if (showIntro) return
     const step = (d: number) => setActive((k) => SECTIONS[(SECTIONS.findIndex((s) => s.key === k) + d + SECTIONS.length) % SECTIONS.length].key)
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
@@ -68,7 +83,7 @@ export default function LandingPage() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [navigate, stacked])
+  }, [navigate, stacked, showIntro])
 
   const onTitle = useCallback((k: Key, title: string) => setNow((p) => (p[k] === title ? p : { ...p, [k]: title })), [])
 
@@ -94,69 +109,83 @@ export default function LandingPage() {
   return (
     <main className="relative flex min-h-svh flex-col bg-background text-foreground overflow-x-hidden">
       <Snowfall fullScreen count={75} speed={0.35} wind={0.06} sway={1.1} flake="mixed" depth={0.9} opacity={[0.18, 0.6]} zIndex={20} />
-      <WinterIntro />
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
-        <Logo size={38} />
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => window.dispatchEvent(new CustomEvent('zenkai:replay-winter-intro'))}
-            title="Replay Winter Intro ❄️"
-            className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-200 transition-all hover:border-sky-400/50 hover:bg-sky-900/40 hover:text-white active:scale-95 shadow-[0_0_15px_rgba(56,189,248,0.12)]"
+      <AnimatePresence mode="wait">
+        {showIntro ? (
+          <WinterIntro key="winter-intro" onFinish={() => setShowIntro(false)} />
+        ) : (
+          <motion.div
+            key="landing-page-content"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+            className="flex min-h-svh flex-col justify-between"
           >
-            <Snowflake className="size-3.5 text-sky-300" />
-            <span className="hidden sm:inline">Winter Intro</span>
-          </button>
-          <Link to="/api" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
-            <Code2 className="size-4" />
-            API
-          </Link>
-          <Link to="/community" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
-            <MessageSquare className="size-4" />
-            Community
-          </Link>
-          <ThemeToggle />
-        </div>
-      </header>
+            <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 pt-5 sm:px-8 sm:pt-7">
+              <Logo size={38} />
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setShowIntro(true)}
+                  title="Replay Winter Intro ❄️"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-200 transition-all hover:border-sky-400/50 hover:bg-sky-900/40 hover:text-white active:scale-95 shadow-[0_0_15px_rgba(56,189,248,0.12)]"
+                >
+                  <Snowflake className="size-3.5 text-sky-300" />
+                  <span className="hidden sm:inline">Winter Intro</span>
+                </button>
+                <Link to="/api" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
+                  <Code2 className="size-4" />
+                  API
+                </Link>
+                <Link to="/community" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
+                  <MessageSquare className="size-4" />
+                  Community
+                </Link>
+                <ThemeToggle />
+              </div>
+            </header>
 
-      <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-6 sm:px-8 lg:py-8">
-        <div className="mb-2 flex justify-center">
-          <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-950/30 px-3.5 py-1 text-xs font-semibold text-sky-200/90 shadow-[0_0_20px_rgba(56,189,248,0.12)] backdrop-blur-md">
-            <Snowflake className="size-3 text-sky-300" />
-            <span>Winter Season · Cozy Up with Zenkai</span>
-          </span>
-        </div>
-        <h1 className="animate-card-in text-balance text-center font-display text-[2rem] font-black leading-[1.05] tracking-tight">What are you in the mood for?</h1>
+            <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 py-6 sm:px-8 lg:py-8">
+              <div className="mb-2 flex justify-center">
+                <span className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-950/30 px-3.5 py-1 text-xs font-semibold text-sky-200/90 shadow-[0_0_20px_rgba(56,189,248,0.12)] backdrop-blur-md">
+                  <Snowflake className="size-3 text-sky-300" />
+                  <span>Winter Season · Cozy Up with Zenkai</span>
+                </span>
+              </div>
+              <h1 className="animate-card-in text-balance text-center font-display text-[2rem] font-black leading-[1.05] tracking-tight">What are you in the mood for?</h1>
 
-        <div
-          role="group"
-          aria-label="Choose a section"
-          className={cn('mt-6 sm:mt-9', stacked ? 'flex flex-col gap-2.5' : 'flex h-[clamp(26rem,calc(100svh-17rem),38rem)] gap-3')}
-        >
-          {SECTIONS.map((s, i) => (
-            <Panel key={s.key} s={s} index={i} active={active === s.key} picked={picked === s.key} stacked={stacked} images={pools[s.key]} title={now[s.key]} onActivate={setActive} onTitle={onTitle} />
-          ))}
-        </div>
+              <div
+                role="group"
+                aria-label="Choose a section"
+                className={cn('mt-6 sm:mt-9', stacked ? 'flex flex-col gap-2.5' : 'flex h-[clamp(26rem,calc(100svh-17rem),38rem)] gap-3')}
+              >
+                {SECTIONS.map((s, i) => (
+                  <Panel key={s.key} s={s} index={i} active={active === s.key} picked={picked === s.key} stacked={stacked} images={pools[s.key]} title={now[s.key]} onActivate={setActive} onTitle={onTitle} />
+                ))}
+              </div>
 
-        <div className="mt-5 flex justify-center sm:mt-6">
-          <button type="button" onClick={surprise} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted transition hover:border-foreground/30 hover:text-foreground active:scale-95">
-            <Shuffle className="size-4" />
-            Can’t decide? Surprise me
-          </button>
-        </div>
-      </section>
+              <div className="mt-5 flex justify-center sm:mt-6">
+                <button type="button" onClick={surprise} className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-semibold text-muted transition hover:border-foreground/30 hover:text-foreground active:scale-95">
+                  <Shuffle className="size-4" />
+                  Can’t decide? Surprise me
+                </button>
+              </div>
+            </section>
 
-      <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-5 pb-6 text-xs text-muted sm:px-8">
-        <Link to="/api" className="inline-flex items-center gap-1.5 font-medium transition hover:text-foreground">
-          <Code2 className="size-3.5" />
-          API &amp; Embed Docs
-        </Link>
-        <Link to="/app" className="inline-flex items-center gap-1.5 font-medium transition hover:text-foreground">
-          <Smartphone className="size-3.5" />
-          Get the Android app
-        </Link>
-        <span className="hidden lg:inline">Press 1–4 to jump in, or use the arrow keys to look around</span>
-      </footer>
+            <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-5 pb-6 text-xs text-muted sm:px-8">
+              <Link to="/api" className="inline-flex items-center gap-1.5 font-medium transition hover:text-foreground">
+                <Code2 className="size-3.5" />
+                API &amp; Embed Docs
+              </Link>
+              <Link to="/app" className="inline-flex items-center gap-1.5 font-medium transition hover:text-foreground">
+                <Smartphone className="size-3.5" />
+                Get the Android app
+              </Link>
+              <span className="hidden lg:inline">Press 1–4 to jump in, or use the arrow keys to look around</span>
+            </footer>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   )
 }
