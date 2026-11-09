@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as RMouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone, Snowflake } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Snowfall } from 'falling-snow/react'
 import { WinterIntro } from '../components/WinterIntro'
@@ -131,7 +131,7 @@ export default function LandingPage() {
                   className="inline-flex items-center gap-1.5 rounded-full border border-sky-400/25 bg-sky-950/40 px-3 py-1.5 text-xs font-semibold text-sky-200 transition-all hover:border-sky-400/50 hover:bg-sky-900/40 hover:text-white active:scale-95 shadow-[0_0_15px_rgba(56,189,248,0.12)]"
                   style={{ fontFamily: "'Comfortaa', sans-serif" }}
                 >
-                  <img src="/winter/snowman.png" alt="" className="size-3.5 object-contain" />
+                  <Snowflake className="size-3.5 text-sky-300" />
                   <span className="hidden sm:inline">Winter Intro</span>
                 </button>
                 <Link to="/api" className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold text-muted transition hover:bg-foreground/5 hover:text-foreground active:scale-95">
@@ -152,9 +152,8 @@ export default function LandingPage() {
                   className="inline-flex items-center gap-2 rounded-full border border-sky-400/20 bg-sky-950/30 px-3.5 py-1 text-xs font-semibold text-sky-200/90 shadow-[0_0_20px_rgba(56,189,248,0.12)] backdrop-blur-md"
                   style={{ fontFamily: "'Comfortaa', 'Fredoka', sans-serif" }}
                 >
-                  <img src="/winter/snowman.png" alt="" className="size-4 object-contain inline-block -my-0.5" />
+                  <Snowflake className="size-3.5 text-sky-300" />
                   <span>Winter Season · Cozy Up with Zenkai</span>
-                  <img src="/winter/mascot.png" alt="" className="size-4 object-contain inline-block -my-0.5" />
                 </span>
               </div>
               <h1 className="animate-card-in text-balance text-center font-display text-[2rem] font-black leading-[1.05] tracking-tight">What are you in the mood for?</h1>
