@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Mous
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowUpRight, ChevronDown, Code2, MessageSquare, Shuffle, Smartphone, Snowflake } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Snowfall } from 'falling-snow/react'
+import { InteractiveSnowfall } from '../components/InteractiveSnowfall'
 import { WinterIntro } from '../components/WinterIntro'
 import { cn } from '../lib/utils'
 import { FadeSlideshow } from '../components/FadeSlideshow'
@@ -108,7 +108,7 @@ export default function LandingPage() {
 
   return (
     <main className="relative flex min-h-svh flex-col bg-background text-foreground overflow-x-hidden">
-      <Snowfall fullScreen count={75} speed={0.35} wind={0.06} sway={1.1} flake="mixed" depth={0.9} opacity={[0.18, 0.6]} zIndex={20} />
+      <InteractiveSnowfall count={85} />
       <AnimatePresence mode="wait">
         {showIntro ? (
           <WinterIntro key="winter-intro" onFinish={() => setShowIntro(false)} />

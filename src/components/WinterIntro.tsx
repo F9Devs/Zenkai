@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 const STORAGE_KEY = 'zenkai_winter_intro_2026'
-const INTRO_DURATION_MS = 4800
+const INTRO_DURATION_MS = 4200
 
-const FULL_TITLE = 'Welcome to Winter'
-const FULL_TAGLINE = 'The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.'
+const TITLE_PART1 = 'Welcome to '
+const TITLE_PART2 = 'Winter'
+const TAGLINE_WORDS = 'The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.'.split(' ')
 
 interface WinterIntroProps {
   onFinish: () => void
@@ -13,58 +14,16 @@ interface WinterIntroProps {
 
 /**
  * Animated Winter Intro sequence shown before the landing page on first visit.
- * Features a joyful 2D female anime key visual, typewriter writing text effects,
- * snowy cursive font, and clean seasonal atmosphere.
+ * Features a joyful 2D female anime key visual, ultra-smooth fluid writing
+ * text animations with soft blur transitions, and snowy cursive typography.
  */
 export function WinterIntro({ onFinish }: WinterIntroProps) {
-  const [titleChars, setTitleChars] = useState(0)
-  const [taglineChars, setTaglineChars] = useState(0)
-  const [taglineStarted, setTaglineStarted] = useState(false)
-
   const finish = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, 'true')
     } catch {}
     onFinish()
   }, [onFinish])
-
-  // Typewriter effect for Title ("Welcome to Winter")
-  useEffect(() => {
-    const startDelay = window.setTimeout(() => {
-      const interval = window.setInterval(() => {
-        setTitleChars((prev) => {
-          if (prev >= FULL_TITLE.length) {
-            window.clearInterval(interval)
-            setTaglineStarted(true)
-            return prev
-          }
-          return prev + 1
-        })
-      }, 45)
-      return () => window.clearInterval(interval)
-    }, 280)
-
-    return () => window.clearTimeout(startDelay)
-  }, [])
-
-  // Typewriter effect for Tagline
-  useEffect(() => {
-    if (!taglineStarted) return
-    const pauseBeforeTagline = window.setTimeout(() => {
-      const interval = window.setInterval(() => {
-        setTaglineChars((prev) => {
-          if (prev >= FULL_TAGLINE.length) {
-            window.clearInterval(interval)
-            return prev
-          }
-          return prev + 1
-        })
-      }, 24)
-      return () => window.clearInterval(interval)
-    }, 180)
-
-    return () => window.clearTimeout(pauseBeforeTagline)
-  }, [taglineStarted])
 
   // Auto-transition to landing page after sequence completes
   useEffect(() => {
@@ -85,13 +44,6 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
       window.removeEventListener('touchmove', onScroll)
     }
   }, [finish])
-
-  const typedTitle = FULL_TITLE.slice(0, titleChars)
-  const titlePart1 = typedTitle.slice(0, 11) // "Welcome to "
-  const titlePart2 = typedTitle.slice(11)     // "Winter"
-
-  const typedTagline = FULL_TAGLINE.slice(0, taglineChars)
-  const isTaglineComplete = taglineChars >= FULL_TAGLINE.length
 
   return (
     <motion.aside
@@ -141,11 +93,11 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           </motion.div>
         </motion.div>
 
-        {/* Kanji & Seasonal Tag without any starry icon */}
+        {/* Kanji & Seasonal Tag without starry icon */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.15 }}
           className="flex items-center gap-2 text-xs font-bold tracking-[0.35em] text-sky-200/90 uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
           style={{ fontFamily: "'Comfortaa', 'Outfit', sans-serif" }}
         >
@@ -154,38 +106,75 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
           <span>ZENKAI WINTER 2026</span>
         </motion.div>
 
-        {/* Main Animated Headline in Snowy Font with Typewriter Writing Effect */}
+        {/* Main Headline with Ultra-Smooth Fluid Writing Animation */}
         <h1
-          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)] min-h-[1.25em]"
+          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
           style={{ fontFamily: "'Mountains of Christmas', 'Sniglet', cursive" }}
         >
-          {titlePart1}
-          {titlePart2 && (
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
-              {titlePart2}
-            </span>
-          )}
-          {!taglineStarted && (
-            <span className="inline-block w-[3px] h-[0.75em] bg-sky-300 ml-1.5 align-middle animate-pulse" />
-          )}
+          {/* "Welcome to " staggered smooth characters */}
+          {TITLE_PART1.split('').map((char, i) => (
+            <motion.span
+              key={`p1-${i}`}
+              initial={{ opacity: 0, y: 6, filter: 'blur(5px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{
+                duration: 0.38,
+                ease: [0.22, 1, 0.36, 1],
+                delay: 0.28 + i * 0.035,
+              }}
+              className="inline-block"
+            >
+              {char === ' ' ? '\u00A0' : char}
+            </motion.span>
+          ))}
+
+          {/* "Winter" glowing gradient characters */}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
+            {TITLE_PART2.split('').map((char, i) => (
+              <motion.span
+                key={`p2-${i}`}
+                initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{
+                  duration: 0.42,
+                  ease: [0.22, 1, 0.36, 1],
+                  delay: 0.28 + (TITLE_PART1.length + i) * 0.038,
+                }}
+                className="inline-block"
+              >
+                {char}
+              </motion.span>
+            ))}
+          </span>
         </h1>
 
-        {/* Cozy Tagline in Comfortaa with Typewriter Writing Effect */}
+        {/* Cozy Tagline with Ultra-Smooth Word-by-Word Fluid Reveal (no cursor line) */}
         <p
-          className="mt-2.5 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed min-h-[2.8rem]"
+          className="mt-2.5 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed"
           style={{ fontFamily: "'Comfortaa', sans-serif" }}
         >
-          {typedTagline}
-          {taglineStarted && !isTaglineComplete && (
-            <span className="inline-block w-[2px] h-[0.9em] bg-sky-300 ml-1 align-middle animate-pulse" />
-          )}
+          {TAGLINE_WORDS.map((word, i) => (
+            <motion.span
+              key={`w-${i}`}
+              initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{
+                duration: 0.42,
+                ease: [0.22, 1, 0.36, 1],
+                delay: 0.95 + i * 0.052,
+              }}
+              className="inline-block mr-[0.28em]"
+            >
+              {word}
+            </motion.span>
+          ))}
         </p>
 
         {/* Bottom Skip Hint */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.65 }}
-          transition={{ duration: 0.5, delay: 0.9 }}
+          transition={{ duration: 0.5, delay: 1.1 }}
           className="mt-7 text-[11px] font-medium tracking-widest text-slate-300 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
           style={{ fontFamily: "'Comfortaa', sans-serif" }}
         >
