@@ -1,29 +1,70 @@
-import { useCallback, useEffect } from 'react'
-import { motion } from 'framer-motion'
+import { useCallback, useEffect, useState } from 'react'
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 
 const STORAGE_KEY = 'zenkai_winter_intro_2026'
-const INTRO_DURATION_MS = 4200
-
-const TITLE_PART1 = 'Welcome to '
-const TITLE_PART2 = 'Winter'
-const TAGLINE_WORDS = 'The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.'.split(' ')
+const INTRO_DURATION_MS = 5000
 
 interface WinterIntroProps {
   onFinish: () => void
 }
 
 /**
- * Animated Winter Intro sequence shown before the landing page on first visit.
- * Features a joyful 2D female anime key visual, ultra-smooth fluid writing
- * text animations with soft blur transitions, and snowy cursive typography.
+ * High-end immersive Winter Intro sequence.
+ * - 3D Interactive Mouse/Touch Parallax: Layers shift smoothly in opposite directions.
+ * - Character Lighting & Lens Flare: Pulsing starlight glint and warm ambient lighting.
+ * - Staggered Typography Reveal: Subtitle first -> Scale/Slide Headline with text-shadow glow -> Cozy description last.
+ * - Cinematic Radial Zoom Exit: Camera pushes through soft frost blur when entering the site.
  */
 export function WinterIntro({ onFinish }: WinterIntroProps) {
+  const [active, setActive] = useState(true)
+
+  // Motion values for smooth interactive 3D parallax
+  const rawMouseX = useMotionValue(0)
+  const rawMouseY = useMotionValue(0)
+
+  // Opposite-direction 3D parallax layers
+  const bgX = useSpring(useTransform(rawMouseX, (v) => -v * 26), { damping: 36, stiffness: 80 })
+  const bgY = useSpring(useTransform(rawMouseY, (v) => -v * 26), { damping: 36, stiffness: 80 })
+
+  const charX = useSpring(useTransform(rawMouseX, (v) => -v * 14), { damping: 30, stiffness: 95 })
+  const charY = useSpring(useTransform(rawMouseY, (v) => -v * 14), { damping: 30, stiffness: 95 })
+
+  const textX = useSpring(useTransform(rawMouseX, (v) => -v * 7), { damping: 32, stiffness: 110 })
+  const textY = useSpring(useTransform(rawMouseY, (v) => -v * 7), { damping: 32, stiffness: 110 })
+
   const finish = useCallback(() => {
     try {
       localStorage.setItem(STORAGE_KEY, 'true')
     } catch {}
-    onFinish()
+    setActive(false)
+    // Allow smooth exit animation to complete before unmounting
+    const t = window.setTimeout(onFinish, 700)
+    return () => window.clearTimeout(t)
   }, [onFinish])
+
+  // Mouse & Touch Parallax Listener
+  useEffect(() => {
+    const handlePointerMove = (e: PointerEvent) => {
+      const { innerWidth, innerHeight } = window
+      const x = (e.clientX - innerWidth / 2) / (innerWidth / 2)
+      const y = (e.clientY - innerHeight / 2) / (innerHeight / 2)
+      rawMouseX.set(x)
+      rawMouseY.set(y)
+    }
+
+    const handlePointerLeave = () => {
+      rawMouseX.set(0)
+      rawMouseY.set(0)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: true })
+    window.addEventListener('pointerleave', handlePointerLeave, { passive: true })
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerleave', handlePointerLeave)
+    }
+  }, [rawMouseX, rawMouseY])
 
   // Auto-transition to landing page after sequence completes
   useEffect(() => {
@@ -49,137 +90,139 @@ export function WinterIntro({ onFinish }: WinterIntroProps) {
     <motion.aside
       key="winter-intro-scene"
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      animate={{ opacity: active ? 1 : 0 }}
       exit={{
         opacity: 0,
-        scale: 1.04,
-        filter: 'blur(10px)',
-        transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] },
+        scale: 1.15,
+        filter: 'blur(16px)',
+        transition: { duration: 0.72, ease: [0.22, 1, 0.36, 1] },
       }}
       onClick={finish}
-      className="relative z-10 flex min-h-svh w-full cursor-pointer flex-col items-center justify-center p-4 sm:p-6 text-center select-none"
+      className="relative z-10 flex min-h-svh w-full cursor-pointer flex-col items-center justify-center p-4 sm:p-6 text-center select-none overflow-hidden"
       aria-label="Winter intro animation. Tap anywhere to enter."
     >
-      {/* Soft Ambient Ice Radial Sheen */}
-      <div
+      {/* Background Parallax Layer: Deep Aurora & Ambient Glow */}
+      <motion.div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.15)_0%,transparent_60%)]"
+        style={{ x: bgX, y: bgY }}
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(56,189,248,0.18)_0%,rgba(99,102,241,0.08)_40%,transparent_68%)]"
       />
 
       <div className="relative z-10 flex flex-col items-center max-w-xl px-4">
-        {/* Joyful 2D Winter Anime Key Visual */}
+        {/* Character Showcase with 3D Parallax & Custom Lighting */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 18 }}
+          style={{ x: charX, y: charY }}
+          initial={{ opacity: 0, scale: 0.88, y: 22 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ duration: 0.85, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
           className="relative mb-3 flex items-center justify-center"
         >
-          {/* Subtle Ambient Glow behind character */}
-          <div
+          {/* Soft ambient light gradient that pulses on her scarf and silhouette */}
+          <motion.div
             aria-hidden
-            className="pointer-events-none absolute -inset-4 rounded-full bg-gradient-to-tr from-sky-400/20 via-indigo-500/15 to-transparent blur-2xl"
+            animate={{
+              opacity: [0.45, 0.75, 0.45],
+              scale: [0.98, 1.04, 0.98],
+            }}
+            transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
+            className="pointer-events-none absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(56,189,248,0.25)_0%,rgba(244,114,182,0.12)_45%,transparent_70%)] blur-2xl"
           />
 
+          {/* 2D Anime Character */}
           <motion.div
             animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 4.5, ease: 'easeInOut' }}
+            transition={{ repeat: Infinity, duration: 4.8, ease: 'easeInOut' }}
             className="relative flex items-center justify-center"
           >
             <img
               src="/winter/anime_character.png"
-              alt="Happy Winter Anime Visual"
-              className="h-48 w-auto max-w-[14rem] sm:h-60 sm:max-w-[17rem] object-contain drop-shadow-[0_12px_32px_rgba(56,189,248,0.35)]"
+              alt="Happy Winter Anime Girl"
+              className="h-48 w-auto max-w-[14rem] sm:h-60 sm:max-w-[17rem] object-contain drop-shadow-[0_12px_36px_rgba(56,189,248,0.4)]"
             />
+
+            {/* Glowing Lens Flare & Pulsing Starlight on the snowflake in her hand */}
+            <motion.div
+              animate={{
+                scale: [0.9, 1.35, 0.9],
+                opacity: [0.7, 1, 0.7],
+              }}
+              transition={{ repeat: Infinity, duration: 2.8, ease: 'easeInOut' }}
+              className="pointer-events-none absolute right-[18%] top-[16%] flex items-center justify-center"
+            >
+              {/* Outer soft aura ring */}
+              <div className="absolute size-10 rounded-full bg-cyan-300/35 blur-md" />
+              {/* Core golden/cyan star glint */}
+              <div className="absolute size-3 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.9),0_0_30px_rgba(56,189,248,0.8)]" />
+              {/* Horizontal flare beam */}
+              <div className="absolute h-[1.5px] w-12 bg-gradient-to-r from-transparent via-cyan-200 to-transparent" />
+              {/* Vertical flare beam */}
+              <div className="absolute w-[1.5px] h-12 bg-gradient-to-b from-transparent via-cyan-200 to-transparent" />
+            </motion.div>
           </motion.div>
         </motion.div>
 
-        {/* Kanji & Seasonal Tag without starry icon */}
+        {/* Parallax Content Container */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="flex items-center gap-2 text-xs font-bold tracking-[0.35em] text-sky-200/90 uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
-          style={{ fontFamily: "'Comfortaa', 'Outfit', sans-serif" }}
+          style={{ x: textX, y: textY }}
+          className="flex flex-col items-center"
         >
-          <span>冬の季節</span>
-          <span className="text-sky-400">•</span>
-          <span>ZENKAI WINTER 2026</span>
+          {/* Step 1: Subtitle ("冬の季節 • ZENKAI WINTER 2026") fades & slides in FIRST */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.75, delay: 0.28, ease: 'easeOut' }}
+            className="flex items-center gap-2 text-xs font-bold tracking-[0.35em] text-sky-200/90 uppercase drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]"
+            style={{ fontFamily: "'Comfortaa', 'Outfit', sans-serif" }}
+          >
+            <span>冬の季節</span>
+            <span className="text-sky-400">•</span>
+            <span>ZENKAI WINTER 2026</span>
+          </motion.div>
+
+          {/* Step 2: "Welcome to Winter" smooth scale-up & slide-up reveal with text-shadow glow */}
+          <motion.h1
+            initial={{ opacity: 0, scale: 0.9, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{
+              duration: 0.9,
+              delay: 0.85,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_0_36px_rgba(56,189,248,0.65)]"
+            style={{ fontFamily: "'Mountains of Christmas', 'Sniglet', cursive" }}
+          >
+            Welcome to{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_40px_rgba(56,189,248,0.85)]">
+              Winter
+            </span>
+          </motion.h1>
+
+          {/* Step 3: Description fades in LAST (no cursor line) */}
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.85,
+              delay: 1.65,
+              ease: [0.16, 1, 0.3, 1],
+            }}
+            className="mt-3 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed"
+            style={{ fontFamily: "'Comfortaa', sans-serif" }}
+          >
+            The cold nights have arrived. Grab a warm blanket and cozy up with Zenkai.
+          </motion.p>
+
+          {/* Bottom Skip Hint */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.65 }}
+            transition={{ duration: 0.6, delay: 2.2 }}
+            className="mt-7 text-[11px] font-medium tracking-widest text-slate-300 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
+            style={{ fontFamily: "'Comfortaa', sans-serif" }}
+          >
+            tap or click anywhere to enter
+          </motion.p>
         </motion.div>
-
-        {/* Main Headline with Ultra-Smooth Fluid Writing Animation */}
-        <h1
-          className="mt-3 text-5xl sm:text-7xl font-bold tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.9)]"
-          style={{ fontFamily: "'Mountains of Christmas', 'Sniglet', cursive" }}
-        >
-          {/* "Welcome to " staggered smooth characters */}
-          {TITLE_PART1.split('').map((char, i) => (
-            <motion.span
-              key={`p1-${i}`}
-              initial={{ opacity: 0, y: 6, filter: 'blur(5px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{
-                duration: 0.38,
-                ease: [0.22, 1, 0.36, 1],
-                delay: 0.28 + i * 0.035,
-              }}
-              className="inline-block"
-            >
-              {char === ' ' ? '\u00A0' : char}
-            </motion.span>
-          ))}
-
-          {/* "Winter" glowing gradient characters */}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-200 via-sky-300 to-indigo-200 drop-shadow-[0_0_30px_rgba(56,189,248,0.7)]">
-            {TITLE_PART2.split('').map((char, i) => (
-              <motion.span
-                key={`p2-${i}`}
-                initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                transition={{
-                  duration: 0.42,
-                  ease: [0.22, 1, 0.36, 1],
-                  delay: 0.28 + (TITLE_PART1.length + i) * 0.038,
-                }}
-                className="inline-block"
-              >
-                {char}
-              </motion.span>
-            ))}
-          </span>
-        </h1>
-
-        {/* Cozy Tagline with Ultra-Smooth Word-by-Word Fluid Reveal (no cursor line) */}
-        <p
-          className="mt-2.5 text-sm sm:text-base font-medium text-slate-200 drop-shadow-[0_2px_12px_rgba(0,0,0,0.9)] max-w-md leading-relaxed"
-          style={{ fontFamily: "'Comfortaa', sans-serif" }}
-        >
-          {TAGLINE_WORDS.map((word, i) => (
-            <motion.span
-              key={`w-${i}`}
-              initial={{ opacity: 0, y: 4, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              transition={{
-                duration: 0.42,
-                ease: [0.22, 1, 0.36, 1],
-                delay: 0.95 + i * 0.052,
-              }}
-              className="inline-block mr-[0.28em]"
-            >
-              {word}
-            </motion.span>
-          ))}
-        </p>
-
-        {/* Bottom Skip Hint */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.65 }}
-          transition={{ duration: 0.5, delay: 1.1 }}
-          className="mt-7 text-[11px] font-medium tracking-widest text-slate-300 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]"
-          style={{ fontFamily: "'Comfortaa', sans-serif" }}
-        >
-          tap or click anywhere to enter
-        </motion.p>
       </div>
     </motion.aside>
   )
