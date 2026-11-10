@@ -253,6 +253,83 @@ export interface Provider {
 
 export const fetchProviders = async (type: MediaType): Promise<Provider[]> => listProviders(type)
 
+export interface MovieDub {
+  id: string
+  label: string
+  selected?: boolean
+}
+
+export interface MovieStream {
+  quality: string
+  resolutionNum?: number
+  format: string
+  size?: number
+  sizeLabel?: string | null
+  streamUrl: string
+  downloadUrl: string
+  downloadFileName?: string
+  rawStreamUrl?: string
+}
+
+export interface MovieStreamResult {
+  success: boolean
+  server: string
+  title: string
+  subjectId: string
+  streamUrl: string
+  downloadUrl?: string
+  rawStreamUrl: string
+  quality: string
+  format: string
+  dubs: MovieDub[]
+  streams: MovieStream[]
+  subtitles?: { id: string; label: string; language: string; lang: string; url: string; source: string }[]
+  referer: string
+}
+
+export async function fetchMovieBoxStream(p: {
+  id: number
+  type: MediaType
+  season?: number
+  episode?: number
+  title?: string
+  year?: string
+  dubId?: string | null
+  imdbId?: string | null
+}): Promise<MovieStreamResult> {
+  const qs = new URLSearchParams({
+    id: String(p.id),
+    type: p.type,
+    s: String(p.season ?? 1),
+    e: String(p.episode ?? 1),
+  })
+  if (p.title) qs.set('title', p.title)
+  if (p.year) qs.set('year', p.year)
+  if (p.dubId) qs.set('dub', p.dubId)
+  if (p.imdbId) qs.set('imdb', p.imdbId)
+
+  const url = apiUrl(`/api/movies/stream?${qs}`)
+  const res = await fetch(url)
+  const data = await res.json()
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.error ?? 'MovieBox stream not available')
+  }
+  return {
+    ...data,
+    streamUrl: apiUrl(data.streamUrl),
+    downloadUrl: data.downloadUrl ? apiUrl(data.downloadUrl) : undefined,
+    streams: (data.streams || []).map((s: MovieStream) => ({
+      ...s,
+      streamUrl: apiUrl(s.streamUrl),
+      downloadUrl: apiUrl(s.downloadUrl),
+    })),
+    subtitles: (data.subtitles || []).map((s: { id: string; label: string; language: string; lang: string; url: string; source: string }) => ({
+      ...s,
+      url: apiUrl(s.url),
+    })),
+  }
+}
+
 export async function resolveProvider(p: { providerId: string; type: MediaType; tmdbId: number; season?: number; episode?: number }): Promise<string> {
   const url = providerUrl(p.providerId, p.type, p.tmdbId, p.season ?? 1, p.episode ?? 1)
   if (!url) throw new Error('Could not load this server')

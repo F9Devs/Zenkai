@@ -17,6 +17,7 @@ import { resolveDirectStreamWorker, checkEpisodeAudioAvailability } from "./dire
 import { resolveFlixCloud, resolveReanimeEmbed } from "./flixcloud.js";
 import { extractAnimeSaltPlayer } from "./animesalt.js";
 import { resolveAcdn } from "./acdn.js";
+import { resolveMovieBoxStream } from "./moviebox.js";
 import { validateProxyUrl } from "./ssrf.js";
 import novelEngine from "./novel.js";
 import * as manga from "./manga.js";
@@ -214,7 +215,9 @@ function refererFor(host, requested) {
   if (/animeapps|nukitashi|playeng/.test(host)) return "https://playeng.animeapps.top/";
   if (/nexabloom|stellarfrontier|phantomharbor|shadowharbor|hiddenvertex|emeralddrift|eclipseharbor|megaplay|megap|shiora|akirax|imgnex/.test(host)) return "https://megaplay.buzz/";
   if (/animesalt|as-cdn|acdn\.top|ravok/.test(host)) return "https://animesalt.cx/";
+  if (/aoneroom|hakunaymatata/.test(host)) return null;
   if (/flixcloud|atomic4cdn|rundowncdn|vividcdn|fallencdn|enc-dec/.test(host)) return "https://flixcloud.cc/";
+  if (/moviebox/.test(host)) return "https://moviebox.ph/";
   return requested || null;
 }
 
@@ -223,9 +226,12 @@ async function proxy(request, url, proxyBase = "/proxy") {
   const check = validateProxyUrl(target);
   if (!check.valid) return json({ error: check.error }, 403);
   const t = check.url;
-  const referer = refererFor(t.hostname.toLowerCase(), url.searchParams.get("referer")) || `${t.origin}/`;
+  const isDirectCdn = /aoneroom|hakunaymatata/.test(t.hostname.toLowerCase());
+  const referer = isDirectCdn ? null : (refererFor(t.hostname.toLowerCase(), url.searchParams.get("referer")) || `${t.origin}/`);
 
-  const headers = new Headers({ "User-Agent": UA, Referer: referer, Origin: referer.replace(/\/$/, ""), Accept: "*/*" });
+  const headers = isDirectCdn
+    ? new Headers({ Accept: "*/*" })
+    : new Headers({ "User-Agent": UA, Referer: referer, Origin: referer.replace(/\/$/, ""), Accept: "*/*" });
   const range = request.headers.get("Range");
   if (range) headers.set("Range", range);
 
@@ -282,7 +288,15 @@ async function proxy(request, url, proxyBase = "/proxy") {
     return new Response(body, { status: up.status, headers: out });
   }
 
-  if (type) out.set("Content-Type", type);
+  const isDownload = url.searchParams.get("dl") === "1" || url.searchParams.get("download") === "1";
+  if (isDownload) {
+    const fn = url.searchParams.get("fn") || t.pathname.split("/").pop() || "video.mp4";
+    const cleanFn = fn.replace(/[^\w\s\-\.\(\)\[\]]/gi, "").trim() || "video.mp4";
+    out.set("Content-Disposition", `attachment; filename="${cleanFn}"`);
+    out.set("Content-Type", "application/octet-stream");
+  } else if (type) {
+    out.set("Content-Type", type);
+  }
   if (/\.(bin|key)$/i.test(t.pathname)) out.set("Content-Type", "application/octet-stream");
   for (const h of ["Content-Length", "Content-Range", "Accept-Ranges"]) {
     const v = up.headers.get(h);
@@ -666,6 +680,65 @@ export async function handle(request, env) {
       return json({ results }, 200, 600);
     } catch {
       return json({ error: "Search is unavailable right now" }, 502);
+    }
+  }
+
+  // Direct stream endpoint for Movies & TV shows via MovieBox:
+  // /api/movies/stream?id=27205&type=movie&s=1&e=1&title=Inception&year=2010&dub=...
+  if (path === "/api/movies/stream") {
+    const tmdbId = parseInt(q("id", "0"), 10);
+    const type = q("type", "movie").toLowerCase() === "tv" ? "tv" : "movie";
+    const season = parseInt(q("s", q("season", "1")), 10) || 1;
+    const episode = parseInt(q("e", q("episode", "1")), 10) || 1;
+    const title = q("title");
+    const year = q("year");
+    const dubId = q("dub") || null;
+    const imdbId = q("imdb");
+
+    if (!tmdbId && !title) return json({ error: "Missing id or title" }, 400);
+
+    try {
+      const res = await cached(`mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`, 10 * 60e3, () =>
+        resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase })
+      );
+
+      // Subtitles lookup
+      let subtitles = [];
+      let effectiveImdb = imdbId;
+      if (!effectiveImdb && tmdbId) {
+        try {
+          const d = await cached(`tmdb_ext:${type}:${tmdbId}`, 24 * 3600e3, () =>
+            getJson(`${TMDB}/${type}/${tmdbId}?append_to_response=external_ids`)
+          );
+          effectiveImdb = d.external_ids?.imdb_id || d.imdb_id;
+        } catch {}
+      }
+      if (effectiveImdb) {
+        try {
+          const osUrl = type === "movie" ? `${OPENSUBS}/movie/${effectiveImdb}.json` : `${OPENSUBS}/series/${effectiveImdb}:${season}:${episode}.json`;
+          const osData = await cached(`os_${effectiveImdb}_${season}_${episode}`, 24 * 3600e3, () => getJson(osUrl).catch(() => null));
+          const count = {};
+          subtitles = (osData?.subtitles || []).slice(0, 50).map((s, i) => {
+            const language = LANGS[s.lang] || (s.lang ? s.lang[0].toUpperCase() + s.lang.slice(1) : "English");
+            count[language] = (count[language] || 0) + 1;
+            return {
+              id: s.id || `os_${i}`,
+              label: count[language] > 1 ? `${language} #${count[language]}` : language,
+              language,
+              lang: s.lang,
+              url: `${proxyBase}?url=${encodeURIComponent(s.url)}&referer=${encodeURIComponent("https://opensubtitles.org/")}`,
+              source: "OpenSubtitles",
+            };
+          });
+        } catch {}
+      }
+
+      return json({
+        ...res,
+        subtitles,
+      }, 200, 300);
+    } catch (e) {
+      return json({ error: e.message || "MovieBox stream resolution failed" }, 502);
     }
   }
 

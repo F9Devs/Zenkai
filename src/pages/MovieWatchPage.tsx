@@ -2,15 +2,24 @@ import { toast } from '../lib/toast'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
-import { ChevronLeft, ChevronRight, Loader2, Lock, TriangleAlert } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Lock, TriangleAlert, Languages, SlidersHorizontal, Download } from 'lucide-react'
 import { ErrorState } from '../components/ErrorState'
 import { ServerMenu } from '../components/ServerMenu'
 import { Skeleton } from '../components/Skeleton'
 import { Tabs } from '../components/Tabs'
 import { useAsync } from '../hooks/useAsync'
 import { cn } from '../lib/utils'
-import { fetchDetails, fetchEpisodes, fetchProviders, movieHref, resolveProvider, type MediaType } from '../services/movies'
+import {
+  fetchDetails,
+  fetchEpisodes,
+  fetchProviders,
+  fetchMovieBoxStream,
+  movieHref,
+  resolveProvider,
+  type MediaType,
+} from '../services/movies'
 import { useShieldVerified, useShield, getToken } from '../lib/shield'
+import CinePlayer from '../components/CinePlayer'
 
 const PREF = 'zk:movie-server:v1'
 const readPref = () => {
@@ -38,6 +47,18 @@ export default function MovieWatchPage() {
   const list = providers.data ?? []
   const providerId = list.find((p) => p.id === params.get('p'))?.id ?? list.find((p) => p.id === readPref())?.id ?? list[0]?.id
   const provider = list.find((p) => p.id === providerId)
+  const isMovieBox = providerId === 'moviebox'
+
+  const [selectedDub, setSelectedDub] = useState<string | null>(params.get('dub') || null)
+  const [selectedQuality, setSelectedQuality] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSelectedDub(params.get('dub') || null)
+  }, [params])
+
+  useEffect(() => {
+    setSelectedQuality(null)
+  }, [id, season, episode, selectedDub])
 
   const [frameLoaded, setFrameLoaded] = useState(false)
   const sessionVerified = useShieldVerified()
@@ -49,9 +70,41 @@ export default function MovieWatchPage() {
     return () => window.clearInterval(t)
   }, [sessionVerified])
 
+  // MovieBox direct stream extraction
+  const mbStream = useAsync(
+    () =>
+      sessionVerified && isMovieBox && details.data?.title
+        ? fetchMovieBoxStream({
+            id,
+            type,
+            season,
+            episode,
+            title: details.data.title,
+            year: details.data.year || undefined,
+            dubId: selectedDub,
+            imdbId: details.data.imdbId,
+          })
+        : Promise.resolve(null),
+    [sessionVerified, isMovieBox, type, id, season, episode, details.data?.title, details.data?.year, selectedDub, details.data?.imdbId]
+  )
+
+  const availableStreams = mbStream.data?.streams || []
+  const activeStream = useMemo(() => {
+    if (!availableStreams.length) return null
+    if (selectedQuality) {
+      const found = availableStreams.find((s) => s.quality === selectedQuality)
+      if (found) return found
+    }
+    return availableStreams[0]
+  }, [availableStreams, selectedQuality])
+
+  const activeStreamUrl = activeStream?.streamUrl || mbStream.data?.streamUrl || ''
+  const activeDownloadUrl = activeStream?.downloadUrl || mbStream.data?.downloadUrl || ''
+
+  // Standard embed iframe stream resolution (Videasy, Vidzee, etc.)
   const src = useAsync(
-    () => (sessionVerified && providerId ? resolveProvider({ providerId, type, tmdbId: id, season, episode }) : Promise.resolve(null)),
-    [sessionVerified, providerId, type, id, season, episode],
+    () => (sessionVerified && providerId && !isMovieBox ? resolveProvider({ providerId, type, tmdbId: id, season, episode }) : Promise.resolve(null)),
+    [sessionVerified, providerId, isMovieBox, type, id, season, episode],
   )
 
   useEffect(() => setFrameLoaded(false), [src.data])
@@ -64,14 +117,23 @@ export default function MovieWatchPage() {
     for (const [k, v] of Object.entries(next)) v === null ? p.delete(k) : p.set(k, String(v))
     setParams(p, { replace: true })
   }
+
   function pick(pid: string) {
     try {
       localStorage.setItem(PREF, pid)
     } catch {
       /* private mode: lasts for this visit */
     }
-    go({ p: pid })
+    setSelectedDub(null)
+    go({ p: pid, dub: null })
     toast(`Switched to ${list.find((x) => x.id === pid)?.label ?? 'new server'}`)
+  }
+
+  function pickDub(dubId: string) {
+    setSelectedDub(dubId)
+    go({ dub: dubId })
+    const dubObj = mbStream.data?.dubs.find((d) => d.id === dubId)
+    toast(`Switched audio to ${dubObj?.label ?? 'dub'}`)
   }
 
   const seasons = details.data?.seasons ?? []
@@ -113,6 +175,76 @@ export default function MovieWatchPage() {
               </button>
             )}
           </div>
+        ) : isMovieBox ? (
+          <>
+            {mbStream.data && (
+              <CinePlayer
+                streamUrl={activeStreamUrl}
+                title={title}
+                episode={type === 'tv' ? episode : 1}
+                episodeTitle={type === 'tv' ? epName : undefined}
+                totalEpisodes={type === 'tv' ? lastEp : 1}
+                availableEpisodes={type === 'tv' ? lastEp : 1}
+                animeId={id}
+                format={type === 'movie' ? 'MOVIE' : 'TV'}
+                directSubtitles={(mbStream.data.subtitles || []).map((s, idx) => ({
+                  id: s.id || `sub-${idx}`,
+                  label: s.label,
+                  lang: s.language || s.lang,
+                  url: s.url,
+                }))}
+                qualities={availableStreams.map((s) => ({
+                  label: s.quality,
+                  url: s.streamUrl,
+                  size: s.size,
+                  sizeLabel: s.sizeLabel,
+                  downloadUrl: s.downloadUrl,
+                }))}
+                currentQuality={activeStream?.quality || mbStream.data?.quality}
+                onQualityChange={(q: { label: string }) => setSelectedQuality(q.label)}
+                downloadUrl={activeDownloadUrl}
+                servers={list.map((p) => ({
+                  id: p.id,
+                  name: p.label,
+                  note: p.tags.join(' · '),
+                  tags: p.tags,
+                }))}
+                serverId={providerId}
+                onServer={pick}
+                hasNextEpisode={!!nextTarget}
+                hasPrevEpisode={!!prevTarget}
+                onNextEpisode={() => nextTarget && go({ s: nextTarget.s, e: nextTarget.e })}
+                onPrevEpisode={() => prevTarget && go({ s: prevTarget.s, e: prevTarget.e })}
+                onSelectEpisode={(n) => go({ e: n })}
+                switching={mbStream.loading}
+                fallbackImg={details.data?.backdrop ? `https://image.tmdb.org/t/p/w1280${details.data.backdrop}` : details.data?.poster ? `https://image.tmdb.org/t/p/w500${details.data.poster}` : null}
+              />
+            )}
+            {(details.loading || mbStream.loading) && !mbStream.data && !mbStream.error && (
+              <div className="pointer-events-none absolute inset-0 grid place-items-center bg-black text-white/80">
+                <span className="flex items-center gap-3 text-sm">
+                  <Loader2 className="size-5 animate-spin" /> Resolving MovieBox stream…
+                </span>
+              </div>
+            )}
+            {mbStream.error && (
+              <div role="alert" className="absolute inset-0 grid place-items-center bg-black p-6 text-center text-white">
+                <div className="flex max-w-sm flex-col items-center gap-3">
+                  <TriangleAlert className="size-7 text-amber-400" />
+                  <p className="text-sm text-white/80">{mbStream.error.message || 'MovieBox stream not available for this title.'}</p>
+                  {nextServer && nextServer.id !== providerId ? (
+                    <button type="button" onClick={() => pick(nextServer.id)} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition active:scale-95">
+                      Try {nextServer.label}
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => mbStream.reload()} className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-black transition active:scale-95">
+                      Try again
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <>
             {src.data && (
@@ -155,6 +287,94 @@ export default function MovieWatchPage() {
         )}
       </div>
 
+      {/* MovieBox Controls: Audio Dubs, Quality Selector & Direct MP4 Downloads */}
+      {isMovieBox && mbStream.data && (
+        <div className="mt-4 flex flex-col gap-3">
+          {/* Audio options: always shows Original, language dubs, and unverified tracks */}
+          {mbStream.data.dubs && mbStream.data.dubs.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-card/40 p-3 backdrop-blur">
+              <span className="flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wider text-muted">
+                <Languages className="size-3.5 text-accent" /> Audio:
+              </span>
+              {mbStream.data.dubs.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => pickDub(d.id)}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-xs font-semibold transition active:scale-95',
+                    d.selected
+                      ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
+                      : 'border border-border bg-card/70 text-muted hover:border-accent hover:text-foreground'
+                  )}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Quality switcher & Direct MP4 Download bar */}
+          {availableStreams.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/40 p-3 backdrop-blur">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="flex items-center gap-1.5 px-1 text-xs font-bold uppercase tracking-wider text-muted">
+                  <SlidersHorizontal className="size-3.5 text-accent" /> Quality:
+                </span>
+                {availableStreams.map((s) => {
+                  const isCur = (activeStream?.quality || mbStream.data?.quality) === s.quality
+                  return (
+                    <button
+                      key={s.quality}
+                      type="button"
+                      onClick={() => {
+                        setSelectedQuality(s.quality)
+                        toast(`Quality switched to ${s.quality}${s.sizeLabel ? ` (${s.sizeLabel})` : ''}`)
+                      }}
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition active:scale-95',
+                        isCur
+                          ? 'bg-accent text-accent-fg shadow-md shadow-accent/20'
+                          : 'border border-border bg-card/70 text-muted hover:border-accent hover:text-foreground'
+                      )}
+                    >
+                      <span>{s.quality}</span>
+                      {s.sizeLabel && (
+                        <span className={cn('text-[10px] font-mono opacity-80', isCur ? 'text-accent-fg' : 'text-muted')}>
+                          {s.sizeLabel}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Direct download button */}
+              <div className="flex items-center gap-2">
+                {activeStream && (
+                  <a
+                    href={activeStream.downloadUrl}
+                    download={activeStream.downloadFileName || `${title} (${activeStream.quality}).mp4`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={() => toast(`Starting download: ${title} (${activeStream.quality})`)}
+                    className="inline-flex items-center gap-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 px-4 py-1.5 text-xs font-bold text-white transition active:scale-95 shadow-sm"
+                  >
+                    <Download className="size-3.5 text-accent" />
+                    <span>Download MP4</span>
+                    {activeStream.sizeLabel && (
+                      <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] font-mono text-muted">
+                        {activeStream.sizeLabel}
+                      </span>
+                    )}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Title + episode nav */}
       <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
@@ -177,7 +397,7 @@ export default function MovieWatchPage() {
 
       {/* Servers: one button, opens the full list in sections */}
       <section className="mt-8" aria-label="Servers">
-        {providers.loading ? <Skeleton className="h-16 w-full rounded-2xl sm:w-[22rem]" /> : <ServerMenu providers={list} value={providerId} onPick={pick} forceOpen={!!(src.error || providers.error)} />}
+        {providers.loading ? <Skeleton className="h-16 w-full rounded-2xl sm:w-[22rem]" /> : <ServerMenu providers={list} value={providerId} onPick={pick} forceOpen={!!(src.error || providers.error || (isMovieBox && mbStream.error))} />}
       </section>
 
       {/* Episodes */}
