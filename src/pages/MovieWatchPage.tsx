@@ -186,6 +186,7 @@ export default function MovieWatchPage() {
                 totalEpisodes={type === 'tv' ? lastEp : 1}
                 availableEpisodes={type === 'tv' ? lastEp : 1}
                 animeId={id}
+                isTmdb
                 format={type === 'movie' ? 'MOVIE' : 'TV'}
                 directSubtitles={(mbStream.data.subtitles || []).map((s, idx) => ({
                   id: s.id || `sub-${idx}`,
@@ -380,7 +381,13 @@ export default function MovieWatchPage() {
         <div className="min-w-0">
           <h1 className="font-display text-2xl font-black tracking-tight">{title}</h1>
           <p className="mt-1 text-sm text-muted">
-            {type === 'tv' ? `Season ${season} · Episode ${episode}${epName ? ` · ${epName}` : ''}` : [details.data?.year, details.data?.runtime ? `${details.data.runtime} min` : null].filter(Boolean).join(' · ')}
+            {type === 'tv'
+              ? `Season ${season} · Episode ${episode}${
+                  epName && epName.trim() !== String(episode) && !/^(?:ep(?:isode)?\.?|ch(?:apter)?\.?)\s*0*(\d+)$/i.test(epName.trim())
+                    ? ` · ${epName.trim()}`
+                    : ''
+                }`
+              : [details.data?.year, details.data?.runtime ? `${details.data.runtime} min` : null].filter(Boolean).join(' · ')}
           </p>
         </div>
         {type === 'tv' && (

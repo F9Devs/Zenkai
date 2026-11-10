@@ -352,6 +352,7 @@ export interface CinePlayerProps {
   currentQuality?: string
   onQualityChange?: (quality: { label: string; url: string; size?: number; sizeLabel?: string | null; downloadUrl?: string }) => void
   downloadUrl?: string
+  isTmdb?: boolean
 }
 
 const PLAYER_TOUR: TourStep[] = [
@@ -780,9 +781,18 @@ export default function CinePlayer({
   episodesInfo, fallbackImg, defaultRuntime, kinds,
   onVideoRef, onPlayerAction, externalControl, onWatchTogetherClick, watchPartyActive, watchPartyPeersCount,
   isPartyGuest = false,
-  qualities, currentQuality, onQualityChange, downloadUrl,
+  qualities, currentQuality, onQualityChange, downloadUrl, isTmdb = false,
 }: CinePlayerProps) {
   const isMovie = format === 'MOVIE' || (totalEpisodes <= 1 && format !== 'TV')
+  const cleanEpTitle = episodeTitle?.trim()
+  const hasDistinctEpTitle = !!(
+    cleanEpTitle &&
+    cleanEpTitle !== String(episode) &&
+    !(() => {
+      const m = cleanEpTitle.match(/^(?:ep(?:isode)?\.?|ch(?:apter)?\.?)\s*0*(\d+)$/i)
+      return m && Number(m[1]) === Number(episode)
+    })()
+  )
   const vid = useRef<HTMLVideoElement>(null)
   const root = useRef<HTMLDivElement>(null)
   const isExternalAction = useRef(false)
@@ -1319,7 +1329,7 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
     void castLoad({
       url: castUrl(apiUrl(streamUrl)),
       title,
-      subtitle: isMovie ? (title || '') : `Episode ${episode}${episodeTitle ? ` · ${episodeTitle}` : ''}`,
+      subtitle: isMovie ? (title || '') : `Episode ${episode}${hasDistinctEpTitle ? ` · ${cleanEpTitle}` : ''}`,
       image: fallbackImg,
       time: start > 3 ? start : 0,
       autoplay: true,
@@ -1488,21 +1498,23 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
         source: servers?.find((x) => x.id === serverId)?.name ?? 'Stream',
         referer: sourceReferer(serverId),
       }))
-      try {
-        const q = new URLSearchParams({ title, ep: String(episode), id: String(animeId), format: format ?? '' })
-        const res = await fetch(apiUrl(`/api/subtitles?${q}`))
-        if (res.ok) {
-          const data = (await res.json()) as { subtitles?: Track[] }
-          for (const s of data.subtitles ?? []) if (!all.some((c) => c.url === s.url)) all.push(s) // every source, not one per language
+      if (!isTmdb) {
+        try {
+          const q = new URLSearchParams({ title, ep: String(episode), id: String(animeId), format: format ?? '' })
+          const res = await fetch(apiUrl(`/api/subtitles?${q}`))
+          if (res.ok) {
+            const data = (await res.json()) as { subtitles?: Track[] }
+            for (const s of data.subtitles ?? []) if (!all.some((c) => c.url === s.url)) all.push(s) // every source, not one per language
+          }
+        } catch {
+          /* OpenSubtitles is optional */
         }
-      } catch {
-        /* OpenSubtitles is optional */
       }
       if (dead) return
       setTracks(all)
 
       // ask every other direct server for its captions too; they trickle into the menu as each answers (anime only)
-      if (!isMovie && format !== 'MOVIE') {
+      if (!isTmdb && !isMovie && format !== 'MOVIE') {
         const seen = new Set(all.map((t) => t.url))
         const others = (servers ?? []).filter((x) => x.id !== serverId)
         setSrcLeft(others.length)
@@ -2186,7 +2198,7 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
               ) : (
                 <>
                   Episode {episode}
-                  {episodeTitle ? ` · ${episodeTitle}` : ''}
+                  {hasDistinctEpTitle ? ` · ${cleanEpTitle}` : ''}
                   {episodeKind ? ` · ${episodeKind === 'mixed' ? 'Mixed canon' : episodeKind === 'recap' ? 'Recap' : 'Filler'}` : ''}
                 </>
               )}
@@ -2249,7 +2261,7 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
               {!isMovie && (
                 <p>
                   Episode {episode}
-                  {episodeTitle ? ` · ${episodeTitle}` : ''}
+                  {hasDistinctEpTitle ? ` · ${cleanEpTitle}` : ''}
                 </p>
               )}
             </div>
