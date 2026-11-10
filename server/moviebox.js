@@ -1,5 +1,4 @@
-import crypto from 'node:crypto';
-
+// Web-standard MovieBox resolver: pure JavaScript MD5 + HMAC-MD5 (runs seamlessly across Cloudflare Pages Functions, Vite, and Node)
 const SECRET_KEY_DEFAULT_B64 = "NzZpUmwwN3MweFNOOWpxbUVXQXQ3OUVCSlp1bElRSXNWNjRGWnIyTw==";
 const SECRET_KEY_ALT_B64 = "WHFuMm5uTzQxL0w5Mm8xaXVYaFNMSFRiWHZZNFo1Wlo2Mm04bVNMQQ==";
 const MODERN_USER_AGENT = "com.community.mbox.in/50020130 (Linux; U; Android 14; en_IN; Pixel 8; Build/UD1A.230803.041; Cronet/145.0.7582.0)";
@@ -18,24 +17,173 @@ const WEB_DOMAINS = [
 const VALID_DUB_REGEX = /hindi|tamil|telugu|kannada|malayalam|bengali|marathi|punjabi|english|spanish|esla|portuguese|ptbr|french|german|italian|russian|japanese|korean|chinese|mandarin|cantonese|arabic|turkish|thai|indonesian|vietnamese|tagalog|filipino|dub|dual\s*audio|multi\s*audio/i;
 const IGNORE_TAG_REGEX = /spoilers?|cameos?|full\s*movie|clips?|trailers?|teasers?|scenes?|review|bts|behind\s*the\s*scenes/i;
 
+// Pure JS RFC 1321 MD5
+function md5(input) {
+  const bytes = typeof input === 'string' ? new TextEncoder().encode(input) : new Uint8Array(input);
+  const n = bytes.length;
+  const newLen = (((n + 8) >> 6) + 1) << 4;
+  const words = new Uint32Array(newLen);
+  for (let i = 0; i < n; i++) words[i >> 2] |= bytes[i] << ((i % 4) << 3);
+  words[n >> 2] |= 0x80 << ((n % 4) << 3);
+  words[newLen - 2] = (n * 8) >>> 0;
+  words[newLen - 1] = Math.floor((n * 8) / 0x100000000);
+
+  let a = 0x67452301, b = 0xefcdab89, c = 0x98badcfe, d = 0x10325476;
+  const rol = (v, s) => (v << s) | (v >>> (32 - s));
+
+  for (let i = 0; i < newLen; i += 16) {
+    const aa = a, bb = b, cc = c, dd = d;
+
+    a = rol(a + ((b & c) | (~b & d)) + words[i + 0] + 0xd76aa478, 7) + b;
+    d = rol(d + ((a & b) | (~a & c)) + words[i + 1] + 0xe8c7b756, 12) + a;
+    c = rol(c + ((d & a) | (~d & b)) + words[i + 2] + 0x242070db, 17) + d;
+    b = rol(b + ((c & d) | (~c & a)) + words[i + 3] + 0xc1bdceee, 22) + c;
+    a = rol(a + ((b & c) | (~b & d)) + words[i + 4] + 0xf57c0faf, 7) + b;
+    d = rol(d + ((a & b) | (~a & c)) + words[i + 5] + 0x4787c62a, 12) + a;
+    c = rol(c + ((d & a) | (~d & b)) + words[i + 6] + 0xa8304613, 17) + d;
+    b = rol(b + ((c & d) | (~c & a)) + words[i + 7] + 0xfd469501, 22) + c;
+    a = rol(a + ((b & c) | (~b & d)) + words[i + 8] + 0x698098d8, 7) + b;
+    d = rol(d + ((a & b) | (~a & c)) + words[i + 9] + 0x8b44f7af, 12) + a;
+    c = rol(c + ((d & a) | (~d & b)) + words[i + 10] + 0xffff5bb1, 17) + d;
+    b = rol(b + ((c & d) | (~c & a)) + words[i + 11] + 0x895cd7be, 22) + c;
+    a = rol(a + ((b & c) | (~b & d)) + words[i + 12] + 0x6b901122, 7) + b;
+    d = rol(d + ((a & b) | (~a & c)) + words[i + 13] + 0xfd987193, 12) + a;
+    c = rol(c + ((d & a) | (~d & b)) + words[i + 14] + 0xa679438e, 17) + d;
+    b = rol(b + ((c & d) | (~c & a)) + words[i + 15] + 0x49b40821, 22) + c;
+
+    a = rol(a + ((b & d) | (c & ~d)) + words[i + 1] + 0xf61e2562, 5) + b;
+    d = rol(d + ((a & c) | (b & ~c)) + words[i + 6] + 0xc040b340, 9) + a;
+    c = rol(c + ((d & b) | (a & ~b)) + words[i + 11] + 0x265e5a51, 14) + d;
+    b = rol(b + ((c & a) | (d & ~a)) + words[i + 0] + 0xe9b6c7aa, 20) + c;
+    a = rol(a + ((b & d) | (c & ~d)) + words[i + 5] + 0xd62f105d, 5) + b;
+    d = rol(d + ((a & c) | (b & ~c)) + words[i + 10] + 0x02441453, 9) + a;
+    c = rol(c + ((d & b) | (a & ~b)) + words[i + 15] + 0xd8a1e681, 14) + d;
+    b = rol(b + ((c & a) | (d & ~a)) + words[i + 4] + 0xe7d3fbc8, 20) + c;
+    a = rol(a + ((b & d) | (c & ~d)) + words[i + 9] + 0x21e1cde6, 5) + b;
+    d = rol(d + ((a & c) | (b & ~c)) + words[i + 14] + 0xc33707d6, 9) + a;
+    c = rol(c + ((d & b) | (a & ~b)) + words[i + 3] + 0xf4d50d87, 14) + d;
+    b = rol(b + ((c & a) | (d & ~a)) + words[i + 8] + 0x455a14ed, 20) + c;
+    a = rol(a + ((b & d) | (c & ~d)) + words[i + 13] + 0xa9e3e905, 5) + b;
+    d = rol(d + ((a & c) | (b & ~c)) + words[i + 2] + 0xfcefa3f8, 9) + a;
+    c = rol(c + ((d & b) | (a & ~b)) + words[i + 7] + 0x676f02d9, 14) + d;
+    b = rol(b + ((c & a) | (d & ~a)) + words[i + 12] + 0x8d2a4c8a, 20) + c;
+
+    a = rol(a + (b ^ c ^ d) + words[i + 5] + 0xfffa3942, 4) + b;
+    d = rol(d + (a ^ b ^ c) + words[i + 8] + 0x8771f681, 11) + a;
+    c = rol(c + (d ^ a ^ b) + words[i + 11] + 0x6d9d6122, 16) + d;
+    b = rol(b + (c ^ d ^ a) + words[i + 14] + 0xfde5380c, 23) + c;
+    a = rol(a + (b ^ c ^ d) + words[i + 1] + 0xa4beea44, 4) + b;
+    d = rol(d + (a ^ b ^ c) + words[i + 4] + 0x4bdecfa9, 11) + a;
+    c = rol(c + (d ^ a ^ b) + words[i + 7] + 0xf6bb4b60, 16) + d;
+    b = rol(b + (c ^ d ^ a) + words[i + 10] + 0xbebfbc70, 23) + c;
+    a = rol(a + (b ^ c ^ d) + words[i + 13] + 0x289b7ec6, 4) + b;
+    d = rol(d + (a ^ b ^ c) + words[i + 0] + 0xeaa127fa, 11) + a;
+    c = rol(c + (d ^ a ^ b) + words[i + 3] + 0xd4ef3085, 16) + d;
+    b = rol(b + (c ^ d ^ a) + words[i + 6] + 0x04881d05, 23) + c;
+    a = rol(a + (b ^ c ^ d) + words[i + 9] + 0xd9d4d039, 4) + b;
+    d = rol(d + (a ^ b ^ c) + words[i + 12] + 0xe6db99e5, 11) + a;
+    c = rol(c + (d ^ a ^ b) + words[i + 15] + 0x1fa27cf8, 16) + d;
+    b = rol(b + (c ^ d ^ a) + words[i + 2] + 0xc4ac5665, 23) + c;
+
+    a = rol(a + (c ^ (b | ~d)) + words[i + 0] + 0xf4292244, 6) + b;
+    d = rol(d + (b ^ (a | ~c)) + words[i + 7] + 0x432aff97, 10) + a;
+    c = rol(c + (a ^ (d | ~b)) + words[i + 14] + 0xab9423a7, 15) + d;
+    b = rol(b + (d ^ (c | ~a)) + words[i + 5] + 0xfc93a039, 21) + c;
+    a = rol(a + (c ^ (b | ~d)) + words[i + 12] + 0x655b59c3, 6) + b;
+    d = rol(d + (b ^ (a | ~c)) + words[i + 3] + 0x8f0ccc92, 10) + a;
+    c = rol(c + (a ^ (d | ~b)) + words[i + 10] + 0xffeff47d, 15) + d;
+    b = rol(b + (d ^ (c | ~a)) + words[i + 1] + 0x85845dd1, 21) + c;
+    a = rol(a + (c ^ (b | ~d)) + words[i + 8] + 0x6fa87e4f, 6) + b;
+    d = rol(d + (b ^ (a | ~c)) + words[i + 15] + 0xfe2ce6e0, 10) + a;
+    c = rol(c + (a ^ (d | ~b)) + words[i + 6] + 0xa3014314, 15) + d;
+    b = rol(b + (d ^ (c | ~a)) + words[i + 13] + 0x4e0811a1, 21) + c;
+    a = rol(a + (c ^ (b | ~d)) + words[i + 4] + 0xf7537e82, 6) + b;
+    d = rol(d + (b ^ (a | ~c)) + words[i + 11] + 0xbd3af235, 10) + a;
+    c = rol(c + (a ^ (d | ~b)) + words[i + 2] + 0x2ad7d2bb, 15) + d;
+    b = rol(b + (d ^ (c | ~a)) + words[i + 9] + 0xeb86d391, 21) + c;
+
+    a = (a + aa) >>> 0;
+    b = (b + bb) >>> 0;
+    c = (c + cc) >>> 0;
+    d = (d + dd) >>> 0;
+  }
+
+  const out = new Uint8Array(16);
+  const outWords = [a, b, c, d];
+  for (let i = 0; i < 4; i++) {
+    out[i * 4 + 0] = outWords[i] & 0xff;
+    out[i * 4 + 1] = (outWords[i] >>> 8) & 0xff;
+    out[i * 4 + 2] = (outWords[i] >>> 16) & 0xff;
+    out[i * 4 + 3] = (outWords[i] >>> 24) & 0xff;
+  }
+  return out;
+}
+
+function md5Hex(data) {
+  const bytes = md5(data);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hmacMd5(key, data) {
+  const keyBytes = typeof key === 'string' ? new TextEncoder().encode(key) : new Uint8Array(key);
+  const dataBytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
+
+  let k = new Uint8Array(64);
+  if (keyBytes.length > 64) {
+    k.set(md5(keyBytes));
+  } else {
+    k.set(keyBytes);
+  }
+
+  const ipad = new Uint8Array(64);
+  const opad = new Uint8Array(64);
+  for (let i = 0; i < 64; i++) {
+    ipad[i] = k[i] ^ 0x36;
+    opad[i] = k[i] ^ 0x5c;
+  }
+
+  const inner = new Uint8Array(64 + dataBytes.length);
+  inner.set(ipad, 0);
+  inner.set(dataBytes, 64);
+  const innerHash = md5(inner);
+
+  const outer = new Uint8Array(64 + 16);
+  outer.set(opad, 0);
+  outer.set(innerHash, 64);
+  return md5(outer);
+}
+
+function hmacMd5Base64(key, data) {
+  const bytes = hmacMd5(key, data);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+
 function b64decode(s) {
   let str = s.replace(/-/g, '+').replace(/_/g, '/');
   str += '='.repeat((4 - (str.length % 4)) % 4);
-  return Buffer.from(str, 'base64');
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
 }
 
 function getSecretBytes(useAlt = false) {
   const outer = useAlt ? SECRET_KEY_ALT_B64 : SECRET_KEY_DEFAULT_B64;
-  const inner = b64decode(outer).toString('utf-8');
-  return b64decode(inner);
-}
-
-function md5Hex(data) {
-  return crypto.createHash('md5').update(data).digest('hex');
+  const innerBytes = b64decode(outer);
+  const innerStr = new TextDecoder().decode(innerBytes);
+  return b64decode(innerStr);
 }
 
 function generateDeviceId() {
-  return crypto.randomBytes(16).toString('hex');
+  const bytes = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < 16; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function generateXClientToken(ts) {
@@ -79,7 +227,7 @@ function buildCanonicalString(method, accept, contentType, urlStr, body, ts) {
   let bodyLength = '';
   let bodyHash = '';
   if (body) {
-    const bodyBuf = Buffer.from(body, 'utf-8');
+    const bodyBuf = new TextEncoder().encode(body);
     bodyLength = String(bodyBuf.length);
     bodyHash = md5Hex(bodyBuf.subarray(0, 102400));
   }
@@ -98,7 +246,7 @@ function buildCanonicalString(method, accept, contentType, urlStr, body, ts) {
 function generateXTrSignature(method, accept, contentType, urlStr, body, ts, useAlt = false) {
   const canonical = buildCanonicalString(method, accept, contentType, urlStr, body, ts);
   const key = getSecretBytes(useAlt);
-  const sigB64 = crypto.createHmac('md5', key).update(Buffer.from(canonical, 'utf-8')).digest('base64');
+  const sigB64 = hmacMd5Base64(key, canonical);
   return `${ts}|2|${sigB64}`;
 }
 

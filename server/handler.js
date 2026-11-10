@@ -3,14 +3,21 @@
 let fsNode = null;
 let pathNode = null;
 let streamNode = null;
-if (typeof globalThis.process !== "undefined" && globalThis.process?.versions?.node) {
-  try {
-    const dns = await import("node:dns");
-    dns.setDefaultResultOrder?.("ipv4first");
-    fsNode = await import("node:fs");
-    pathNode = await import("node:path");
-    streamNode = await import("node:stream");
-  } catch {}
+
+async function loadLocalMediaModules() {
+  if (fsNode && pathNode && streamNode) return true;
+  if (typeof globalThis.process !== "undefined" && globalThis.process?.versions?.node) {
+    try {
+      const modFs = "node:fs";
+      const modPath = "node:path";
+      const modStream = "node:stream";
+      fsNode = await import(/* @vite-ignore */ modFs);
+      pathNode = await import(/* @vite-ignore */ modPath);
+      streamNode = await import(/* @vite-ignore */ modStream);
+      return true;
+    } catch {}
+  }
+  return false;
 }
 
 import { resolveDirectStreamWorker, checkEpisodeAudioAvailability } from "./direct-stream.js";
@@ -451,7 +458,8 @@ export async function handle(request, env) {
   if (blocked) return blocked;
 
   if (path === "/api/local-media" || path === "/api/offline-video" || path === "/api/offline-stream") {
-    if (!fsNode || !pathNode) return json({ error: "Local media streaming not supported in this runtime" }, 501);
+    const loaded = await loadLocalMediaModules();
+    if (!loaded || !fsNode || !pathNode) return json({ error: "Local media streaming not supported in this runtime" }, 501);
 
     const filePath = q("path");
     const isHls = q("hls") === "1";
