@@ -252,7 +252,7 @@ function generateXTrSignature(method, accept, contentType, urlStr, body, ts, use
 
 function buildAuthHeaders(method, urlStr, body = null, token = null, deviceId = null) {
   const ts = Math.floor(Date.now() / 1000);
-  const devId = deviceId || generateDeviceId();
+  const devId = deviceId || getDeviceId();
   const accept = 'application/json';
   const contentType = body ? 'application/json' : '';
 
@@ -276,13 +276,18 @@ function buildAuthHeaders(method, urlStr, body = null, token = null, deviceId = 
 
 let cachedToken = null;
 let tokenExpiresAt = 0;
-const globalDeviceId = generateDeviceId();
+let globalDeviceId = null;
+
+function getDeviceId() {
+  if (!globalDeviceId) globalDeviceId = generateDeviceId();
+  return globalDeviceId;
+}
 
 export async function bootstrapToken() {
   if (cachedToken && Date.now() < tokenExpiresAt) {
     return cachedToken;
   }
-  const headers = buildAuthHeaders('GET', BOOTSTRAP_URL, null, null, globalDeviceId);
+  const headers = buildAuthHeaders('GET', BOOTSTRAP_URL, null, null, getDeviceId());
   const res = await fetch(BOOTSTRAP_URL, {
     headers,
     signal: AbortSignal.timeout(8000),
@@ -305,7 +310,7 @@ export async function apiRequest(method, pathOrUrl, bodyDict = null) {
   const fullUrl = pathOrUrl.startsWith('http') ? pathOrUrl : `${NATIVE_API_BASE}${pathOrUrl}`;
   const token = await bootstrapToken();
   const bodyStr = bodyDict ? JSON.stringify(bodyDict) : null;
-  const headers = buildAuthHeaders(method, fullUrl, bodyStr, token, globalDeviceId);
+  const headers = buildAuthHeaders(method, fullUrl, bodyStr, token, getDeviceId());
 
   const res = await fetch(fullUrl, {
     method,
