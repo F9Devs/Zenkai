@@ -49,11 +49,11 @@ export default function MovieWatchPage() {
   const provider = list.find((p) => p.id === providerId)
   const isMovieBox = providerId === 'moviebox'
 
-  const [selectedDub, setSelectedDub] = useState<string | null>(params.get('dub') || null)
+  const [selectedDub, setSelectedDub] = useState<string | null>(params.get('dub')?.replace(/^-/, '') || null)
   const [selectedQuality, setSelectedQuality] = useState<string | null>(null)
 
   useEffect(() => {
-    setSelectedDub(params.get('dub') || null)
+    setSelectedDub(params.get('dub')?.replace(/^-/, '') || null)
   }, [params])
 
   useEffect(() => {
@@ -130,9 +130,10 @@ export default function MovieWatchPage() {
   }
 
   function pickDub(dubId: string) {
-    setSelectedDub(dubId)
-    go({ dub: dubId })
-    const dubObj = mbStream.data?.dubs.find((d) => d.id === dubId)
+    const cleanId = dubId.replace(/^-/, '')
+    setSelectedDub(cleanId)
+    go({ dub: cleanId })
+    const dubObj = mbStream.data?.dubs.find((d) => d.id === cleanId || d.id === dubId)
     toast(`Switched audio to ${dubObj?.label ?? 'dub'}`)
   }
 
@@ -219,6 +220,13 @@ export default function MovieWatchPage() {
                 onSelectEpisode={(n) => go({ e: n })}
                 switching={mbStream.loading}
                 fallbackImg={details.data?.backdrop ? `https://image.tmdb.org/t/p/w1280${details.data.backdrop}` : details.data?.poster ? `https://image.tmdb.org/t/p/w500${details.data.poster}` : null}
+                defaultRuntime={
+                  activeStream?.duration
+                    ? Math.round(activeStream.duration / 60)
+                    : (type === 'tv'
+                        ? eps.data?.find((e) => e.n === episode)?.runtime || details.data?.runtime
+                        : details.data?.runtime) || null
+                }
               />
             )}
             {(details.loading || mbStream.loading) && !mbStream.data && !mbStream.error && (

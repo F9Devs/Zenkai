@@ -215,7 +215,8 @@ function refererFor(host, requested) {
   if (/animeapps|nukitashi|playeng/.test(host)) return "https://playeng.animeapps.top/";
   if (/nexabloom|stellarfrontier|phantomharbor|shadowharbor|hiddenvertex|emeralddrift|eclipseharbor|megaplay|megap|shiora|akirax|imgnex/.test(host)) return "https://megaplay.buzz/";
   if (/animesalt|as-cdn|acdn\.top|ravok/.test(host)) return "https://animesalt.cx/";
-  if (/aoneroom|hakunaymatata/.test(host)) return null;
+  if (/bcdnxw/.test(host)) return "https://123moviesfree.club/";
+  if (/aoneroom|bcdn\.hakunaymatata\.com/.test(host)) return null;
   if (/flixcloud|atomic4cdn|rundowncdn|vividcdn|fallencdn|enc-dec/.test(host)) return "https://flixcloud.cc/";
   if (/moviebox/.test(host)) return "https://moviebox.ph/";
   return requested || null;
@@ -226,18 +227,47 @@ async function proxy(request, url, proxyBase = "/proxy") {
   const check = validateProxyUrl(target);
   if (!check.valid) return json({ error: check.error }, 403);
   const t = check.url;
-  const isDirectCdn = /aoneroom|hakunaymatata/.test(t.hostname.toLowerCase());
-  const referer = isDirectCdn ? null : (refererFor(t.hostname.toLowerCase(), url.searchParams.get("referer")) || `${t.origin}/`);
+  const host = t.hostname.toLowerCase();
+  const isWebMirrorCdn = host.includes("bcdnxw") || host.includes("123moviesfree") || host.includes("sflix");
+  const isDirectAppCdn = !isWebMirrorCdn && (/aoneroom/.test(host) || host === "bcdn.hakunaymatata.com");
 
-  const headers = isDirectCdn
-    ? new Headers({ Accept: "*/*" })
-    : new Headers({ "User-Agent": UA, Referer: referer, Origin: referer.replace(/\/$/, ""), Accept: "*/*" });
+  let referer = null;
+  if (isDirectAppCdn) {
+    referer = null;
+  } else if (isWebMirrorCdn) {
+    referer = url.searchParams.get("referer") || "https://123moviesfree.club/";
+  } else {
+    referer = refererFor(host, url.searchParams.get("referer")) || `${t.origin}/`;
+  }
+
+  const headers = new Headers({ Accept: "*/*" });
+  if (referer) {
+    headers.set("Referer", referer);
+    if (!isWebMirrorCdn) {
+      headers.set("Origin", referer.replace(/\/$/, ""));
+    }
+  }
+  if (!isDirectAppCdn && !isWebMirrorCdn) {
+    headers.set("User-Agent", UA);
+  }
+
   const range = request.headers.get("Range");
   if (range) headers.set("Range", range);
 
   let up;
   try {
     up = await fetch(t, { headers });
+    if ((up.status === 429 || up.status === 428 || up.status === 403) && /hakunaymatata|aoneroom/.test(host)) {
+      const retryHeaders = new Headers({ Accept: "*/*" });
+      if (range) retryHeaders.set("Range", range);
+      if (!headers.has("Referer")) {
+        retryHeaders.set("Referer", "https://123moviesfree.club/");
+      }
+      const retryUp = await fetch(t, { headers: retryHeaders });
+      if (retryUp.ok || retryUp.status === 206) {
+        up = retryUp;
+      }
+    }
   } catch (e) {
     const cause = e.cause?.message || e.cause?.code || "";
     return json({ error: "Proxy fetch failed: " + e.message + " " + cause }, 502);

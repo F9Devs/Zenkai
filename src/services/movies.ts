@@ -265,6 +265,7 @@ export interface MovieStream {
   format: string
   size?: number
   sizeLabel?: string | null
+  duration?: number
   streamUrl: string
   downloadUrl: string
   downloadFileName?: string
@@ -281,6 +282,7 @@ export interface MovieStreamResult {
   rawStreamUrl: string
   quality: string
   format: string
+  duration?: number
   dubs: MovieDub[]
   streams: MovieStream[]
   subtitles?: { id: string; label: string; language: string; lang: string; url: string; source: string }[]

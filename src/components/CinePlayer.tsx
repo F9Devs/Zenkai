@@ -1192,15 +1192,23 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
     setAudioTracks([])
     setAudioIdx(0)
     setTime(0)
-    setDur(0)
+    setDur(defaultRuntime && defaultRuntime > 0 ? defaultRuntime * 60 : 0)
     setBuf(0)
     setCard(true)
     skipped.current = -1
     const saved = readPos(animeId, episode)
     const resumeTime = lastTimeRef.current > 10 ? lastTimeRef.current : saved
     const onMeta = () => {
-      if (resumeTime > 10 && resumeTime < v.duration - 45) v.currentTime = resumeTime
-      if (!castOn.current) v.play().catch(() => {})
+      if (v.duration && isFinite(v.duration) && v.duration > 0) setDur(v.duration)
+      else if (defaultRuntime && defaultRuntime > 0) setDur(defaultRuntime * 60)
+      const effectiveDur = (v.duration && isFinite(v.duration) && v.duration > 0) ? v.duration : (defaultRuntime ? defaultRuntime * 60 : 0)
+      if (resumeTime > 10 && effectiveDur > 0 && resumeTime < effectiveDur - 45) v.currentTime = resumeTime
+      setBusy(false)
+      if (!castOn.current) {
+        v.play().catch(() => {
+          setBusy(false)
+        })
+      }
     }
 
     if (isFileSrc(streamUrl) && qualities && qualities.length > 0) {
@@ -2112,6 +2120,16 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
         preload="auto"
         onTimeUpdate={onTime}
         onDurationChange={() => !castOn.current && setDur(vid.current?.duration || 0)}
+        onLoadedMetadata={() => {
+          if (castOn.current) return
+          const v = vid.current
+          if (v?.duration && isFinite(v.duration)) setDur(v.duration)
+          setBusy(false)
+        }}
+        onLoadedData={() => {
+          if (castOn.current) return
+          setBusy(false)
+        }}
         onPlay={() => {
           if (castOn.current) return
           setPlaying(true)

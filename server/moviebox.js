@@ -608,8 +608,9 @@ export async function resolveMovieBoxStream({
   let playSubjectId = matched.subject_id;
   let streams = [];
 
-  if (dubId) {
-    const targetDub = formattedDubs.find((d) => d.id === dubId);
+  const cleanDubId = dubId ? String(dubId).replace(/^-/, '').trim() : null;
+  if (cleanDubId) {
+    const targetDub = formattedDubs.find((d) => d.id === cleanDubId || d.id === dubId || d.id.replace(/^-/, '') === cleanDubId);
     if (targetDub) {
       playSubjectId = targetDub.id;
       let playDetailPath = targetDub.detail_path;
@@ -685,6 +686,7 @@ export async function resolveMovieBoxStream({
       format: s.format,
       size: s.size,
       sizeLabel: formatSize(s.size),
+      duration: s.duration || 0,
       url: s.url,
       streamUrl,
       downloadUrl,
@@ -704,6 +706,7 @@ export async function resolveMovieBoxStream({
     rawStreamUrl: bestStream.url,
     quality: bestStream.quality,
     format: bestStream.format,
+    duration: bestStream.duration || 0,
     dubs: formattedDubs.map((d) => ({ id: d.id, label: d.label, selected: d.id === playSubjectId })),
     streams: formattedStreams,
     referer: 'https://123moviesfree.club/',
