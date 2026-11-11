@@ -42,6 +42,7 @@ const CORS = {
   "Access-Control-Allow-Headers": "*",
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
   "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges",
+  "Access-Control-Allow-Private-Network": "true",
 };
 
 const json = (data, status = 200, ttl = 0) =>

@@ -380,19 +380,31 @@ export async function fetchMovieBoxStream(p: {
     throw new Error(data?.error ?? 'MovieBox stream not available for this title')
   }
 
+  const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
   const resolveStreamUrl = (u?: string, rawUrl?: string) => {
     if (!u) return u
-    if (u.startsWith('http://') || u.startsWith('https://')) return u
     const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
-    if (MOVIEBOX_SERVICE_URL) {
-      const base = MOVIEBOX_SERVICE_URL
-      if (u.startsWith('/proxy')) {
-        const queryPart = u.substring(u.indexOf('/proxy'))
-        return `${base}${queryPart}`
+
+    // On local machine (dev server), ALWAYS use the local domestic proxy for bcdnxw
+    if (isLocalHost && isWebMirror) {
+      let target = rawUrl
+      if (!target && u.includes('url=')) {
+        try {
+          const parsed = new URL(u, window.location.href)
+          target = parsed.searchParams.get('url') || undefined
+        } catch {}
       }
-      return `${base}/proxy?url=${encodeURIComponent(rawUrl || u)}${isWebMirror ? '&referer=' + encodeURIComponent('https://123moviesfree.club/') : ''}`
+      return `/proxy?url=${encodeURIComponent(target || u)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`
     }
-    return apiUrl(u)
+
+    if (u.startsWith('http://') || u.startsWith('https://')) return u
+
+    if (isWebMirror) {
+      return apiUrl(u.startsWith('/proxy') ? u : `/proxy?url=${encodeURIComponent(rawUrl || u)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`)
+    }
+
+    return MOVIEBOX_SERVICE_URL ? `${MOVIEBOX_SERVICE_URL}${u}` : apiUrl(u)
   }
 
   return {

@@ -884,8 +884,9 @@ export async function resolveMovieBoxStream({
     const baseProxy = (proxyBase || '/proxy').replace(/\?url=.*$/, '').replace(/\/+$/, '');
     const edgeProxyUrl = `${baseProxy}?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
 
-    // Both Direct App CDN and Web Mirror CDN (bcdnxw) stream through Railway IPv4 midman proxy
-    const effectiveProxyUrl = midmanProxyUrl;
+    // Direct App CDN (movies) -> Railway midman proxy (Singapore)
+    // Web Mirror CDN (bcdnxw for TV series & dubs) -> Local/Edge proxy
+    const effectiveProxyUrl = isDirectAppCdn ? midmanProxyUrl : edgeProxyUrl;
     const isHls = /\.m3u8/i.test(s.url);
     const streamUrl = isHls ? `${effectiveProxyUrl}&seg=1` : effectiveProxyUrl;
     const downloadUrl = `${effectiveProxyUrl}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;

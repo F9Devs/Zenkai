@@ -193,8 +193,12 @@ export async function shield(request, env, path, json) {
   const isEmbedReq = referer && (referer.includes("/embed") || request.headers.has("X-Zenkai-Embed"));
   const isWebOrigin = isAllowedDomain(origin) || isAllowedDomain(referer);
 
+  if (cat === "proxy") {
+    // Media range streaming and file downloads from <video> and <a download> cannot carry custom headers
+    return null;
+  }
+
   if (
-    cat === "proxy" ||
     isEmbedReq ||
     path.startsWith("/api/embed/") ||
     path.startsWith("/api/servers-available") ||

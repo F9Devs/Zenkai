@@ -1298,35 +1298,41 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
 
     function onVideoError() {
       if (!v) return;
-      // 1. If currently playing via Railway and it failed (e.g. bcdnxw 426), fallback to local /proxy
-      if (v.src && v.src.includes('railway.app') && v.src.includes('url=')) {
+      if (v.src && v.src.includes('url=')) {
         try {
-          const u = new URL(v.src)
+          const u = new URL(v.src, window.location.href)
           const targetUrl = u.searchParams.get('url')
           if (targetUrl) {
-            console.warn('[CinePlayer] Railway proxy failed, falling back to local edge proxy:', targetUrl)
-            const fallbackUrl = apiUrl(`/proxy?url=${encodeURIComponent(targetUrl)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`)
-            v.src = fallbackUrl
-            v.load()
-            v.play().catch(() => {})
-            return
-          }
-        } catch {}
-      }
-      // 2. If currently playing via Lovable edge or local proxy and it failed, fallback to Railway
-      if (v.src && (v.src.includes('lovable.app') || (v.src.includes('/proxy?url=') && !v.src.includes('railway.app')))) {
-        try {
-          const u = new URL(v.src)
-          const targetUrl = u.searchParams.get('url')
-          if (targetUrl) {
-            console.warn('[CinePlayer] Edge proxy failed, falling back to Railway proxy:', targetUrl)
-            const isWeb = targetUrl.includes('bcdnxw') || targetUrl.includes('123moviesfree')
-            const refParam = isWeb ? `&referer=${encodeURIComponent('https://123moviesfree.club/')}` : ''
-            const fallbackUrl = `https://zenkai-movies-production.up.railway.app/proxy?url=${encodeURIComponent(targetUrl)}${refParam}`
-            v.src = fallbackUrl
-            v.load()
-            v.play().catch(() => {})
-            return
+            const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            // If on localhost and not already on localhost /proxy:
+            if (isLocal && !v.src.startsWith(window.location.origin + '/proxy')) {
+              const localUrl = `/proxy?url=${encodeURIComponent(targetUrl)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`
+              v.src = localUrl
+              v.load()
+              v.play().catch(() => {})
+              return
+            }
+            // If on production zenkai.cfd, test if user has localhost running on 5174 or 5173 (desktop dev/helper)
+            if (!isLocal && !v.src.includes('localhost:')) {
+              const candidate = `http://localhost:5174/proxy?url=${encodeURIComponent(targetUrl)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`
+              fetch(`http://localhost:5174/proxy?url=test`, { method: 'OPTIONS', signal: AbortSignal.timeout(800) })
+                .then(r => {
+                  if (r.ok || r.status === 204) {
+                    console.log('[CinePlayer] Local domestic helper detected on port 5174! Seamlessly switching stream.')
+                    v.src = candidate
+                    v.load()
+                    v.play().catch(() => {})
+                  } else {
+                    setErr(true)
+                    setBusy(false)
+                  }
+                })
+                .catch(() => {
+                  setErr(true)
+                  setBusy(false)
+                })
+              return
+            }
           }
         } catch {}
       }
@@ -2971,16 +2977,31 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
 
         {err && (
           <div className="zp-er">
-            <p>This stream couldn't be loaded.</p>
-            <div className="zp-two" style={{ pointerEvents: 'auto' }}>
-              <button className="zp-b pill" onClick={() => setRetry((n) => n + 1)}>
-                Try again
-              </button>
+            <p className="text-sm font-medium">This stream could not be loaded directly on this network.</p>
+            <div className="zp-two" style={{ pointerEvents: 'auto', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+              {(() => {
+                const best = servers?.find((s) => s.id === 'vidzee' || s.id === 'videasy' || s.id === 'vidup');
+                if (best && onServer) {
+                  return (
+                    <button
+                      className="zp-b pill"
+                      style={{ background: 'var(--accent, #e50914)', color: '#fff', fontWeight: 700 }}
+                      onClick={() => onServer(best.id)}
+                    >
+                      ⚡ Switch to {best.name}
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               {servers && servers.length > 0 && (
                 <button className="zp-b pill" onClick={(e) => setPop('srv', e.currentTarget)}>
-                  Switch server
+                  All Servers ({servers.length})
                 </button>
               )}
+              <button className="zp-b pill" style={{ opacity: 0.7 }} onClick={() => setRetry((n) => n + 1)}>
+                Try again
+              </button>
             </div>
           </div>
         )}
