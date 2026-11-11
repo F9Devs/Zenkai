@@ -292,14 +292,38 @@ export async function bootstrapToken() {
   if (cachedToken && Date.now() < tokenExpiresAt) {
     return cachedToken;
   }
-  let lastErr = null;
+
+  // Method 1: Direct visitor-login API (global, zero geo-restriction)
+  for (const host of ['https://api3.aoneroom.com', 'https://api6.aoneroom.com']) {
+    try {
+      const url = `${host}/wefeed-mobile-bff/user-api/visitor-login`;
+      const bodyStr = JSON.stringify({});
+      const headers = buildAuthHeaders('POST', url, bodyStr, null, getDeviceId());
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: bodyStr,
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json?.data?.token) {
+          cachedToken = json.data.token;
+          tokenExpiresAt = Date.now() + 24 * 3600 * 1000;
+          return cachedToken;
+        }
+      }
+    } catch (err) {}
+  }
+
+  // Method 2: Tab ranking list fallback (x-user header)
   for (const host of BOOTSTRAP_HOSTS) {
     try {
       const bUrl = `${host}/wefeed-mobile-bff/tab/ranking-list?tabId=0&categoryType=4516404531735022304&page=1&perPage=1`;
       const headers = buildAuthHeaders('GET', bUrl, null, null, getDeviceId());
       const res = await fetch(bUrl, {
         headers,
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(6000),
       });
       const xUser = res.headers.get('x-user');
       if (xUser) {
@@ -308,11 +332,10 @@ export async function bootstrapToken() {
         tokenExpiresAt = Date.now() + 2 * 3600 * 1000;
         return cachedToken;
       }
-    } catch (err) {
-      lastErr = err;
-    }
+    } catch (err) {}
   }
-  throw new Error(`Bootstrap failed: ${lastErr ? lastErr.message : 'no x-user token received'}`);
+
+  throw new Error('Failed to bootstrap MovieBox token');
 }
 
 export async function apiRequest(method, pathOrUrl, bodyDict = null) {
