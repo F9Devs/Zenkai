@@ -559,6 +559,7 @@ export async function resolveMovieBoxStream({
   year = '',
   dubId = null,
   proxyBase = '/proxy',
+  midmanUrl = '',
 }) {
   let resolvedTitle = title;
   let resolvedYear = year;
@@ -823,12 +824,16 @@ export async function resolveMovieBoxStream({
     const qualityTag = s.quality || 'HD';
     const fileBase = [matched.title, epTag, dubTag, `[${qualityTag}]`].filter(Boolean).join(' ').trim();
     const downloadFileName = `${fileBase}.mp4`;
+    const isDirectAppCdn = /hakunaymatata|aoneroom/.test(s.url);
+    const resolvedMediaUrl = (isDirectAppCdn && midmanUrl)
+      ? `${midmanUrl.replace(/\/+$/, '')}/proxy?url=${encodeURIComponent(s.url)}`
+      : s.url;
     const streamUrl = proxyBase
-      ? `${proxyBase}?url=${encodeURIComponent(s.url)}&referer=${encodeURIComponent('https://123moviesfree.club/')}&seg=1`
-      : s.url;
+      ? `${proxyBase}?url=${encodeURIComponent(resolvedMediaUrl)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}&seg=1`
+      : resolvedMediaUrl;
     const downloadUrl = proxyBase
-      ? `${proxyBase}?url=${encodeURIComponent(s.url)}&referer=${encodeURIComponent('https://123moviesfree.club/')}&dl=1&fn=${encodeURIComponent(downloadFileName)}`
-      : s.url;
+      ? `${proxyBase}?url=${encodeURIComponent(resolvedMediaUrl)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}&dl=1&fn=${encodeURIComponent(downloadFileName)}`
+      : resolvedMediaUrl;
 
     return {
       quality: s.quality,

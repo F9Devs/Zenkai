@@ -289,6 +289,8 @@ export interface MovieStreamResult {
   referer: string
 }
 
+const MOVIEBOX_SERVICE_URL = ((import.meta.env.VITE_MOVIEBOX_PROXY_URL as string | undefined) || '').replace(/\/+$/, '')
+
 export async function fetchMovieBoxStream(p: {
   id: number
   type: MediaType
@@ -310,24 +312,52 @@ export async function fetchMovieBoxStream(p: {
   if (p.dubId) qs.set('dub', p.dubId)
   if (p.imdbId) qs.set('imdb', p.imdbId)
 
-  const url = apiUrl(`/api/movies/stream?${qs}`)
-  const res = await fetch(url)
-  const data = await res.json()
-  if (!res.ok || !data?.success) {
-    throw new Error(data?.error ?? 'MovieBox stream not available')
+  let data: any = null
+  let resOk = false
+
+  // 1. If external midman service URL is configured, try it first
+  if (MOVIEBOX_SERVICE_URL) {
+    try {
+      const res = await fetch(`${MOVIEBOX_SERVICE_URL}/api/movies/stream?${qs}`, {
+        signal: AbortSignal.timeout(6000),
+      })
+      if (res.ok) {
+        const d = await res.json()
+        if (d?.success) {
+          data = d
+          resOk = true
+        }
+      }
+    } catch {}
   }
+
+  // 2. Fall back to Cloudflare Pages Worker / backend resolver for lightweight JSON metadata
+  if (!resOk) {
+    const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
+    data = await res.json()
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.error ?? 'MovieBox stream not available')
+    }
+  }
+
+  const resolveStreamUrl = (u?: string) => {
+    if (!u) return u
+    if (u.startsWith('http://') || u.startsWith('https://')) return u
+    return MOVIEBOX_SERVICE_URL ? `${MOVIEBOX_SERVICE_URL}${u}` : apiUrl(u)
+  }
+
   return {
     ...data,
-    streamUrl: apiUrl(data.streamUrl),
-    downloadUrl: data.downloadUrl ? apiUrl(data.downloadUrl) : undefined,
+    streamUrl: resolveStreamUrl(data.streamUrl),
+    downloadUrl: data.downloadUrl ? resolveStreamUrl(data.downloadUrl) : undefined,
     streams: (data.streams || []).map((s: MovieStream) => ({
       ...s,
-      streamUrl: apiUrl(s.streamUrl),
-      downloadUrl: apiUrl(s.downloadUrl),
+      streamUrl: resolveStreamUrl(s.streamUrl),
+      downloadUrl: s.downloadUrl ? resolveStreamUrl(s.downloadUrl) : undefined,
     })),
     subtitles: (data.subtitles || []).map((s: { id: string; label: string; language: string; lang: string; url: string; source: string }) => ({
       ...s,
-      url: apiUrl(s.url),
+      url: resolveStreamUrl(s.url),
     })),
   }
 }

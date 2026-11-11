@@ -262,9 +262,28 @@ async function proxy(request, url, proxyBase = "/proxy") {
   const range = request.headers.get("Range");
   if (range) headers.set("Range", range);
 
+  const midmanUrl = (
+    env?.VITE_MOVIEBOX_PROXY_URL || 
+    env?.MOVIEBOX_PROXY_URL || 
+    (typeof process !== "undefined" ? (process.env?.VITE_MOVIEBOX_PROXY_URL || process.env?.MOVIEBOX_PROXY_URL) : "")
+  )?.replace(/\/+$/, "");
+
   let up;
   try {
-    up = await fetch(t, { headers });
+    if (isDirectAppCdn && midmanUrl) {
+      try {
+        const midmanProxyUrl = `${midmanUrl}/proxy?url=${encodeURIComponent(t.href)}`;
+        const midmanHeaders = new Headers({ Accept: "*/*" });
+        if (range) midmanHeaders.set("Range", range);
+        const midmanUp = await fetch(midmanProxyUrl, { headers: midmanHeaders });
+        if (midmanUp.ok || midmanUp.status === 206) {
+          up = midmanUp;
+        }
+      } catch {}
+    }
+    if (!up) {
+      up = await fetch(t, { headers });
+    }
     if ((up.status === 429 || up.status === 428 || up.status === 403) && /hakunaymatata|aoneroom/.test(host)) {
       const retryHeaders = new Headers({ Accept: "*/*" });
       if (range) retryHeaders.set("Range", range);
@@ -748,10 +767,42 @@ export async function handle(request, env) {
 
     if (!tmdbId && !title) return json({ error: "Missing id or title" }, 400);
 
+    const midmanUrl = (
+      env?.VITE_MOVIEBOX_PROXY_URL || 
+      env?.MOVIEBOX_PROXY_URL || 
+      (typeof process !== "undefined" ? (process.env?.VITE_MOVIEBOX_PROXY_URL || process.env?.MOVIEBOX_PROXY_URL) : "")
+    )?.replace(/\/+$/, "");
+
     try {
-      const res = await cached(`mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`, 10 * 60e3, () =>
-        resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase })
-      );
+      const res = await cached(`mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`, 10 * 60e3, async () => {
+        if (midmanUrl) {
+          try {
+            const extQs = new URLSearchParams({
+              id: String(tmdbId || 0),
+              type,
+              s: String(season),
+              e: String(episode),
+              ...(title ? { title } : {}),
+              ...(year ? { year } : {}),
+              ...(dubId ? { dub: dubId } : {}),
+              ...(imdbId ? { imdb: imdbId } : {})
+            });
+            const extResp = await fetch(`${midmanUrl}/api/movies/stream?${extQs.toString()}`, {
+              headers: { "Accept": "application/json" },
+              signal: AbortSignal.timeout(12000)
+            });
+            if (extResp.ok) {
+              const extData = await extResp.json();
+              if (extData && extData.success) {
+                return extData;
+              }
+            }
+          } catch (extErr) {
+            console.warn("[MovieBox] Midman service fetch error, falling back to local resolver:", extErr.message);
+          }
+        }
+        return resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl });
+      });
 
       // Subtitles lookup
       let subtitles = [];
