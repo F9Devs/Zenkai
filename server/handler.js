@@ -433,7 +433,19 @@ const slugVariants = (t) => {
 };
 
 function getProxyBase(request, env) {
-  let p = env?.STREAM_PROXY_URL || env?.VITE_STREAM_PROXY_URL || globalThis.process?.env?.STREAM_PROXY_URL || globalThis.process?.env?.VITE_STREAM_PROXY_URL || "";
+  try {
+    const host = new URL(request.url).hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0" || host === "::1" || host.endsWith(".local")) {
+      return "/proxy";
+    }
+  } catch {}
+
+  let p =
+    env?.STREAM_PROXY_URL ||
+    env?.VITE_STREAM_PROXY_URL ||
+    globalThis.process?.env?.STREAM_PROXY_URL ||
+    globalThis.process?.env?.VITE_STREAM_PROXY_URL ||
+    "https://webpage-launchpad.lovable.app/api/public/proxy";
   p = p.trim().replace(/\/+$/, "");
   if (!p) return "/proxy";
   try {
