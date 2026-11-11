@@ -580,6 +580,7 @@ export async function resolveMovieBoxStream({
   dubId = null,
   proxyBase = '/proxy',
   midmanUrl = '',
+  env = null,
 }) {
   let resolvedTitle = title;
   let resolvedYear = year;
@@ -591,7 +592,7 @@ export async function resolveMovieBoxStream({
   // 1. Fetch metadata from TMDB if title or year are missing
   if ((!resolvedTitle || !resolvedYear || !expectedRuntime) && tmdbId) {
     try {
-      const tmdbData = await tmdbFetch(`${targetType}/${tmdbId}?language=en-US&append_to_response=alternative_titles`);
+      const tmdbData = await tmdbFetch(`${targetType}/${tmdbId}?language=en-US&append_to_response=alternative_titles`, env);
       if (tmdbData) {
         resolvedTitle = resolvedTitle || tmdbData.title || tmdbData.name || '';
         originalTitle = tmdbData.original_title || tmdbData.original_name || '';

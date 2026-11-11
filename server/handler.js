@@ -777,14 +777,14 @@ export async function handle(request, env) {
       const cacheKey = `mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`;
       const hit = memo.get(cacheKey);
       let res = null;
+      let localErrMsg = "";
 
       if (hit && Date.now() - hit.at < 10 * 60e3 && hit.v?.success === true && hit.v?.streams?.length > 0) {
         res = hit.v;
       } else {
         // Tier 1: Local edge MovieBox resolver (fast, direct, robust on Cloudflare Pages)
-        let localErrMsg = "";
         try {
-          res = await resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl });
+          res = await resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl, env });
         } catch (localErr) {
           localErrMsg = localErr.message || String(localErr);
           console.warn("[MovieBox] Local resolver error, falling back to midman:", localErr.message);
