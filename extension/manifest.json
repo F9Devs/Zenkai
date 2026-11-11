@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Zenkai Stream Companion",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Direct zero-proxy high-speed streaming for Zenkai Web. Intercepts and unlocks MovieBox, Hakunaymatata, and BCDNXW CDNs.",
   "permissions": [
     "declarativeNetRequest",
@@ -12,7 +12,8 @@
     "*://*.hakunaymatata.com/*",
     "*://*.aoneroom.com/*",
     "*://*.inmoviebox.com/*",
-    "*://*.bcdnxw*/*",
+    "*://*.bcdnxw.com/*",
+    "*://bcdnxw.hakunaymatata.com/*",
     "*://*.123moviesfree.club/*",
     "*://*.sflix.film/*",
     "*://*.movieboxonline.net/*",
@@ -20,7 +21,8 @@
     "*://*.zenkai.cfd/*",
     "*://*.pages.dev/*",
     "*://localhost/*",
-    "*://127.0.0.1/*"
+    "*://127.0.0.1/*",
+    "<all_urls>"
   ],
   "declarative_net_request": {
     "rule_resources": [

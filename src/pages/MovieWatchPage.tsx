@@ -204,6 +204,7 @@ export default function MovieWatchPage() {
             {mbStream.data && (
               <CinePlayer
                 streamUrl={activeStreamUrl}
+                fallbackStreamUrl={activeStream?.streamUrl || mbStream.data?.streamUrl || ''}
                 title={title}
                 episode={type === 'tv' ? episode : 1}
                 episodeTitle={type === 'tv' ? epName : undefined}

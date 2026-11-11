@@ -19,6 +19,7 @@ import { attachPlayerSecurity } from '../lib/playerSecurity'
 import {
   airplayPicker, airplaySupported, castLoad, castRequest, castSeek, castSetVolume, castStop, castToggleMute, castTogglePlay, castUrl, getCast, initCast, onCastFinished, useCast,
 } from '../lib/cast'
+import { isCompanionActive } from '../lib/useCompanion'
 import './cineplayer.css'
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
@@ -352,6 +353,7 @@ export interface CinePlayerProps {
   currentQuality?: string
   onQualityChange?: (quality: { label: string; url: string; size?: number; sizeLabel?: string | null; downloadUrl?: string }) => void
   downloadUrl?: string
+  fallbackStreamUrl?: string
   isTmdb?: boolean
 }
 
@@ -792,7 +794,7 @@ export default function CinePlayer({
   episodesInfo, fallbackImg, defaultRuntime, kinds,
   onVideoRef, onPlayerAction, externalControl, onWatchTogetherClick, watchPartyActive, watchPartyPeersCount,
   isPartyGuest = false,
-  qualities, currentQuality, onQualityChange, downloadUrl, isTmdb = false,
+  qualities, currentQuality, onQualityChange, downloadUrl, fallbackStreamUrl, isTmdb = false,
 }: CinePlayerProps) {
   const isMovie = format === 'MOVIE' || (totalEpisodes <= 1 && format !== 'TV')
   const cleanEpTitle = episodeTitle?.trim()
@@ -837,6 +839,11 @@ export default function CinePlayer({
     return () => clearTimeout(t)
   }, [externalControl])
   const hls = useRef<Hls | null>(null)
+  const triedFallback = useRef(false)
+
+  useEffect(() => {
+    triedFallback.current = false
+  }, [streamUrl])
 
   // Anti-Debug, Anti-DevTools & Anti-Scraping Protection (Scoped exclusively to CinePlayer)
   useEffect(() => {
@@ -1298,6 +1305,14 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
 
     function onVideoError() {
       if (!v) return;
+      if (fallbackStreamUrl && fallbackStreamUrl !== v.src && !triedFallback.current) {
+        triedFallback.current = true;
+        console.warn('[CinePlayer] Direct stream encountered error, seamlessly falling back to proxy stream:', fallbackStreamUrl);
+        v.src = fallbackStreamUrl;
+        v.load();
+        v.play().catch(() => {});
+        return;
+      }
       if (v.src && v.src.includes('url=')) {
         try {
           const u = new URL(v.src, window.location.href)
@@ -2390,54 +2405,56 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
             </div>
           </div>
 
-          <div className="zp-mid">
-            {!isMovie && (
+          {!err && (
+            <div className="zp-mid">
+              {!isMovie && (
+                <button
+                  className={cx('zp-b zp-pn', isPartyGuest && 'opacity-40 cursor-not-allowed')}
+                  disabled={isPartyGuest || !hasPrevEpisode}
+                  onClick={() => onPrevEpisode?.()}
+                  aria-label="Previous episode"
+                  title={isPartyGuest ? 'Episode changes controlled by party host' : 'Previous episode'}
+                >
+                  <SkipBack />
+                </button>
+              )}
               <button
-                className={cx('zp-b zp-pn', isPartyGuest && 'opacity-40 cursor-not-allowed')}
-                disabled={isPartyGuest || !hasPrevEpisode}
-                onClick={() => onPrevEpisode?.()}
-                aria-label="Previous episode"
-                title={isPartyGuest ? 'Episode changes controlled by party host' : 'Previous episode'}
+                className={cx('zp-b zp-sd', isPartyGuest && 'opacity-40 cursor-not-allowed')}
+                disabled={isPartyGuest}
+                onClick={() => seek(-pf.seek)}
+                aria-label={`Back ${pf.seek} seconds`}
+                title={isPartyGuest ? 'Timestamp controlled by party host' : `Back ${pf.seek}s [J]`}
               >
-                <SkipBack />
+                <RotateCcw />
+                <span className="zp-n">{pf.seek}</span>
               </button>
-            )}
-            <button
-              className={cx('zp-b zp-sd', isPartyGuest && 'opacity-40 cursor-not-allowed')}
-              disabled={isPartyGuest}
-              onClick={() => seek(-pf.seek)}
-              aria-label={`Back ${pf.seek} seconds`}
-              title={isPartyGuest ? 'Timestamp controlled by party host' : `Back ${pf.seek}s [J]`}
-            >
-              <RotateCcw />
-              <span className="zp-n">{pf.seek}</span>
-            </button>
-            <button className="zp-b zp-hero" data-tour="p-play" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause [Space]">
-              <Play className={cx('zp-ic pl', playing && 'off')} fill="currentColor" />
-              <Pause className={cx('zp-ic', !playing && 'off')} fill="currentColor" />
-            </button>
-            <button
-              className={cx('zp-b zp-sd', isPartyGuest && 'opacity-40 cursor-not-allowed')}
-              disabled={isPartyGuest}
-              onClick={() => seek(pf.seek)}
-              aria-label={`Forward ${pf.seek} seconds`}
-              title={isPartyGuest ? 'Timestamp controlled by party host' : `Forward ${pf.seek}s [L]`}
-            >
-              <RotateCw />
-              <span className="zp-n">{pf.seek}</span>
-            </button>
-            {!isMovie && (
+              <button className="zp-b zp-hero" data-tour="p-play" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'} title="Play / pause [Space]">
+                <Play className={cx('zp-ic pl', playing && 'off')} fill="currentColor" />
+                <Pause className={cx('zp-ic', !playing && 'off')} fill="currentColor" />
+              </button>
               <button
-                className={cx('zp-b zp-pn', isPartyGuest && 'opacity-40 cursor-not-allowed')}
-                disabled={isPartyGuest || !hasNextEpisode}
-                onClick={() => onNextEpisode?.()}
-                aria-label="Next episode"
-                title={isPartyGuest ? 'Episode changes controlled by party host' : 'Next episode'}
+                className={cx('zp-b zp-sd', isPartyGuest && 'opacity-40 cursor-not-allowed')}
+                disabled={isPartyGuest}
+                onClick={() => seek(pf.seek)}
+                aria-label={`Forward ${pf.seek} seconds`}
+                title={isPartyGuest ? 'Timestamp controlled by party host' : `Forward ${pf.seek}s [L]`}
               >
-                <SkipForward />
+                <RotateCw />
+                <span className="zp-n">{pf.seek}</span>
               </button>
-            )}
-          </div>
+              {!isMovie && (
+                <button
+                  className={cx('zp-b zp-pn', isPartyGuest && 'opacity-40 cursor-not-allowed')}
+                  disabled={isPartyGuest || !hasNextEpisode}
+                  onClick={() => onNextEpisode?.()}
+                  aria-label="Next episode"
+                  title={isPartyGuest ? 'Episode changes controlled by party host' : 'Next episode'}
+                >
+                  <SkipForward />
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="zp-bot">
             <div className="zp-sr">
@@ -2999,16 +3016,26 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
                   All Servers ({servers.length})
                 </button>
               )}
-              <a
-                href="/extension"
-                target="_blank"
-                rel="noreferrer"
+              {!isCompanionActive() && (
+                <a
+                  href="/extension"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="zp-b pill"
+                  style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                >
+                  ⚡ Get Extension
+                </a>
+              )}
+              <button
                 className="zp-b pill"
-                style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+                style={{ opacity: 0.85 }}
+                onClick={() => {
+                  setErr(false)
+                  setBusy(true)
+                  setRetry((n) => n + 1)
+                }}
               >
-                ⚡ Get Extension
-              </a>
-              <button className="zp-b pill" style={{ opacity: 0.7 }} onClick={() => setRetry((n) => n + 1)}>
                 Try again
               </button>
             </div>
