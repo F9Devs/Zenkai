@@ -1,6 +1,7 @@
 /** Movies + TV: TMDB catalogue (through /api/movies) and the embed servers (through /api/providers). */
 import { apiUrl } from './api'
 import { listProviders, providerUrl } from '../lib/providers'
+import { isCompanionActive } from '../lib/useCompanion'
 
 export type MediaType = 'movie' | 'tv'
 
@@ -380,10 +381,26 @@ export async function fetchMovieBoxStream(p: {
     throw new Error(data?.error ?? 'MovieBox stream not available for this title')
   }
 
+  const hasCompanion = isCompanionActive()
   const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   const resolveStreamUrl = (u?: string, rawUrl?: string) => {
     if (!u) return u
+
+    // If Zenkai Companion extension is active, use the raw CDN stream DIRECTLY with zero proxies!
+    if (hasCompanion) {
+      let directUrl = rawUrl
+      if (!directUrl && u.includes('url=')) {
+        try {
+          const parsed = new URL(u, typeof window !== 'undefined' ? window.location.href : 'http://localhost')
+          directUrl = parsed.searchParams.get('url') || undefined
+        } catch {}
+      }
+      if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
+        return directUrl
+      }
+    }
+
     const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
 
     // On local machine (dev server), ALWAYS use the local domestic proxy for bcdnxw

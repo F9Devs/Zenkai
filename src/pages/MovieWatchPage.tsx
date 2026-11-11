@@ -2,12 +2,13 @@ import { toast } from '../lib/toast'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useBackToDetails } from '../lib/backToDetails'
-import { ChevronLeft, ChevronRight, Loader2, Lock, TriangleAlert, Languages, SlidersHorizontal, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Lock, TriangleAlert, Languages, SlidersHorizontal, Download, Zap } from 'lucide-react'
 import { ErrorState } from '../components/ErrorState'
 import { ServerMenu } from '../components/ServerMenu'
 import { Skeleton } from '../components/Skeleton'
 import { Tabs } from '../components/Tabs'
 import { useAsync } from '../hooks/useAsync'
+import { useCompanion } from '../lib/useCompanion'
 import { cn } from '../lib/utils'
 import {
   fetchDetails,
@@ -88,6 +89,7 @@ export default function MovieWatchPage() {
     [sessionVerified, isMovieBox, type, id, season, episode, details.data?.title, details.data?.year, selectedDub, details.data?.imdbId]
   )
 
+  const companion = useCompanion()
   const availableStreams = mbStream.data?.streams || []
   const activeStream = useMemo(() => {
     if (!availableStreams.length) return null
@@ -98,8 +100,12 @@ export default function MovieWatchPage() {
     return availableStreams[0]
   }, [availableStreams, selectedQuality])
 
-  const activeStreamUrl = activeStream?.streamUrl || mbStream.data?.streamUrl || ''
-  const activeDownloadUrl = activeStream?.downloadUrl || mbStream.data?.downloadUrl || ''
+  const activeStreamUrl = companion.installed
+    ? (activeStream?.rawStreamUrl || activeStream?.url || activeStream?.streamUrl || '')
+    : (activeStream?.streamUrl || mbStream.data?.streamUrl || '')
+  const activeDownloadUrl = companion.installed
+    ? (activeStream?.rawStreamUrl || activeStream?.downloadUrl || activeStream?.url || '')
+    : (activeStream?.downloadUrl || mbStream.data?.downloadUrl || '')
 
   // Standard embed iframe stream resolution (Videasy, Vidzee, etc.)
   const src = useAsync(
@@ -155,9 +161,26 @@ export default function MovieWatchPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-32 pt-24 sm:px-6 sm:pt-28 md:pb-20">
-      <Link to={movieHref({ type, id })} onClick={backTo(movieHref({ type, id }))} className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-foreground">
-        <ChevronLeft className="size-4" /> Details
-      </Link>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <Link to={movieHref({ type, id })} onClick={backTo(movieHref({ type, id }))} className="inline-flex items-center gap-1.5 text-sm text-muted transition hover:text-foreground">
+          <ChevronLeft className="size-4" /> Details
+        </Link>
+
+        <div className="flex items-center gap-2">
+          {companion.installed ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+              <Zap className="size-3 text-emerald-400" /> Direct CDN Active (0ms Proxy Delay)
+            </span>
+          ) : (
+            <Link
+              to="/extension"
+              className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent transition hover:brightness-125"
+            >
+              <Zap className="size-3 text-accent animate-pulse" /> Unlock Direct 4K (Get Extension)
+            </Link>
+          )}
+        </div>
+      </div>
 
       {/* Player */}
       <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border bg-black shadow-2xl shadow-black/30 sm:rounded-3xl">
@@ -197,10 +220,10 @@ export default function MovieWatchPage() {
                 }))}
                 qualities={availableStreams.map((s) => ({
                   label: s.quality,
-                  url: s.streamUrl,
+                  url: companion.installed ? (s.rawStreamUrl || s.url || s.streamUrl) : s.streamUrl,
                   size: s.size,
                   sizeLabel: s.sizeLabel,
-                  downloadUrl: s.downloadUrl,
+                  downloadUrl: companion.installed ? (s.rawStreamUrl || s.downloadUrl || s.url) : s.downloadUrl,
                 }))}
                 currentQuality={activeStream?.quality || mbStream.data?.quality}
                 onQualityChange={(q: { label: string }) => setSelectedQuality(q.label)}

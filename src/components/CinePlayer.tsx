@@ -2999,6 +2999,15 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
                   All Servers ({servers.length})
                 </button>
               )}
+              <a
+                href="/extension"
+                target="_blank"
+                rel="noreferrer"
+                className="zp-b pill"
+                style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+              >
+                ⚡ Get Extension
+              </a>
               <button className="zp-b pill" style={{ opacity: 0.7 }} onClick={() => setRetry((n) => n + 1)}>
                 Try again
               </button>
