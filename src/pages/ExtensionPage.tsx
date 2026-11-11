@@ -13,7 +13,7 @@ import {
   Sparkles,
   Layers
 } from 'lucide-react'
-import { useCompanion } from '../lib/useCompanion'
+import { useCompanion, LATEST_EXTENSION_VERSION } from '../lib/useCompanion'
 import { toast } from '../lib/toast'
 
 export default function ExtensionPage() {
@@ -62,25 +62,41 @@ export default function ExtensionPage() {
           {/* Live status banner */}
           <div className="mx-auto mt-8 max-w-lg">
             {companion.installed ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-left shadow-lg shadow-emerald-950/20">
-                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400">
-                  <CheckCircle2 className="size-6" />
+              companion.isOutdated ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left shadow-lg shadow-amber-950/20">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-400">
+                    <AlertCircle className="size-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-amber-300">
+                      Update Available (v{companion.version || '1.0.0'} → v{LATEST_EXTENSION_VERSION})
+                    </h3>
+                    <p className="text-xs text-amber-200/80">
+                      A newer version of the companion is ready with updated CDN rules and streaming fixes. Download the new zip below and click reload in chrome://extensions.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold text-emerald-400">Zenkai Companion Active! (v{companion.version || '1.0.0'})</h3>
-                  <p className="text-xs text-emerald-300/80">
-                    Direct residential CDN connection is fully enabled. All series, movies, and dubs will stream without backend proxy limits.
-                  </p>
+              ) : (
+                <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-left shadow-lg shadow-emerald-950/20">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                    <CheckCircle2 className="size-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-emerald-400">Extension Active & Up to Date (v{companion.version || LATEST_EXTENSION_VERSION})</h3>
+                    <p className="text-xs text-emerald-300/80">
+                      Direct residential CDN connection is fully operational. Streams run directly from original CDNs with zero proxy delay.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )
             ) : (
-              <div className="flex items-center gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left shadow-lg shadow-amber-950/20">
-                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-400">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left shadow-lg shadow-black/40">
+                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/20 text-accent">
                   <AlertCircle className="size-6" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-amber-400">Companion Extension Not Detected</h3>
-                  <p className="text-xs text-amber-300/80">
+                  <h3 className="text-sm font-bold text-foreground">Companion Extension Not Detected</h3>
+                  <p className="text-xs text-muted">
                     Download and load the extension below to eliminate buffering and unlock TV series and multi-audio dubs.
                   </p>
                 </div>
@@ -106,7 +122,7 @@ export default function ExtensionPage() {
             </button>
           </div>
           <span className="mt-2.5 block text-[11px] text-muted">
-            Version 1.0.0 • Size ~6 KB • Compatible with Chrome, Edge, Brave, Opera & Vivaldi
+            Version {LATEST_EXTENSION_VERSION} • Size ~43 KB • Compatible with Chrome, Edge, Brave, Opera & Vivaldi
           </span>
         </div>
 

@@ -1,9 +1,25 @@
 import { useEffect, useState } from 'react'
 
+export const LATEST_EXTENSION_VERSION = '1.0.1'
+
 export interface CompanionInfo {
   installed: boolean
   version?: string
+  isOutdated: boolean
   capabilities?: string[]
+}
+
+export function isVersionOlder(current?: string, latest: string = LATEST_EXTENSION_VERSION): boolean {
+  if (!current) return false
+  const cParts = current.split('.').map((n) => parseInt(n, 10) || 0)
+  const lParts = latest.split('.').map((n) => parseInt(n, 10) || 0)
+  for (let i = 0; i < Math.max(cParts.length, lParts.length); i++) {
+    const c = cParts[i] || 0
+    const l = lParts[i] || 0
+    if (c < l) return true
+    if (c > l) return false
+  }
+  return false
 }
 
 export function isCompanionActive(): boolean {
@@ -18,9 +34,11 @@ export function useCompanion(): CompanionInfo {
   const [info, setInfo] = useState<CompanionInfo>(() => {
     const active = isCompanionActive()
     const meta = typeof window !== 'undefined' ? (window as any).__ZENKAI_COMPANION__ : undefined
+    const ver = meta?.version || (typeof document !== 'undefined' ? document.documentElement.dataset.zenkaiCompanionVersion : undefined)
     return {
       installed: active,
-      version: meta?.version || (typeof document !== 'undefined' ? document.documentElement.dataset.zenkaiCompanionVersion : undefined),
+      version: ver,
+      isOutdated: active ? isVersionOlder(ver) : false,
       capabilities: meta?.capabilities,
     }
   })
@@ -28,9 +46,11 @@ export function useCompanion(): CompanionInfo {
   useEffect(() => {
     const onReady = (e: Event) => {
       const detail = (e as CustomEvent)?.detail
+      const ver = detail?.version || (typeof document !== 'undefined' ? document.documentElement.dataset.zenkaiCompanionVersion : undefined) || '1.0.0'
       setInfo({
         installed: true,
-        version: detail?.version || '1.0.0',
+        version: ver,
+        isOutdated: isVersionOlder(ver),
         capabilities: detail?.capabilities,
       })
     }
@@ -44,9 +64,11 @@ export function useCompanion(): CompanionInfo {
     // Fast interval check for late injection
     const t = window.setInterval(() => {
       if (isCompanionActive() && !info.installed) {
+        const ver = (window as any).__ZENKAI_COMPANION__?.version || (typeof document !== 'undefined' ? document.documentElement.dataset.zenkaiCompanionVersion : undefined) || '1.0.0'
         setInfo({
           installed: true,
-          version: (window as any).__ZENKAI_COMPANION__?.version || '1.0.0',
+          version: ver,
+          isOutdated: isVersionOlder(ver),
           capabilities: (window as any).__ZENKAI_COMPANION__?.capabilities,
         })
       }

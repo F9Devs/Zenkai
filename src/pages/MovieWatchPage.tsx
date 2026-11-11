@@ -8,7 +8,7 @@ import { ServerMenu } from '../components/ServerMenu'
 import { Skeleton } from '../components/Skeleton'
 import { Tabs } from '../components/Tabs'
 import { useAsync } from '../hooks/useAsync'
-import { useCompanion } from '../lib/useCompanion'
+import { useCompanion, LATEST_EXTENSION_VERSION } from '../lib/useCompanion'
 import { cn } from '../lib/utils'
 import {
   fetchDetails,
@@ -169,15 +169,36 @@ export default function MovieWatchPage() {
 
         <div className="flex items-center gap-2">
           {companion.installed ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
-              <Zap className="size-3 text-emerald-400" /> Direct CDN Active (0ms Proxy Delay)
-            </span>
+            companion.isOutdated ? (
+              <Link
+                to="/extension"
+                className="group inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300 backdrop-blur-sm transition-all hover:border-amber-500/40 hover:bg-amber-500/15 hover:text-amber-200"
+                title={`Your extension is v${companion.version || '1.0.0'}. Click to update to v${LATEST_EXTENSION_VERSION}.`}
+              >
+                <span className="size-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span>Update Extension</span>
+                <span className="rounded bg-amber-500/20 px-1 py-0.5 text-[10px] font-mono text-amber-200">v{LATEST_EXTENSION_VERSION}</span>
+              </Link>
+            ) : (
+              <Link
+                to="/extension"
+                className="group inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/70 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
+                title={`Zenkai Extension v${companion.version || LATEST_EXTENSION_VERSION} active.`}
+              >
+                <span className="size-1.5 rounded-full bg-emerald-400/90 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+                <span>Extension Active</span>
+                {companion.version && (
+                  <span className="text-[10px] text-white/35 font-mono">v{companion.version}</span>
+                )}
+              </Link>
+            )
           ) : (
             <Link
               to="/extension"
-              className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-semibold text-accent transition hover:brightness-125"
+              className="group inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-white/60 backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.06] hover:text-white"
             >
-              <Zap className="size-3 text-accent animate-pulse" /> Unlock Direct 4K (Get Extension)
+              <Zap className="size-3 text-white/40 transition-colors group-hover:text-white" />
+              <span>Get Extension</span>
             </Link>
           )}
         </div>
