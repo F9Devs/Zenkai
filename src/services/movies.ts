@@ -334,9 +334,13 @@ export async function fetchMovieBoxStream(p: {
   // 2. Fall back to Cloudflare Pages Worker / backend resolver for lightweight JSON metadata
   if (!resOk) {
     const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
-    data = await res.json()
+    try {
+      data = await res.json()
+    } catch {
+      data = null
+    }
     if (!res.ok || !data?.success) {
-      throw new Error(data?.error ?? 'MovieBox stream not available')
+      throw new Error(data?.error ?? 'MovieBox stream not available for this title')
     }
   }
 

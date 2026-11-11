@@ -840,7 +840,7 @@ export async function handle(request, env) {
         subtitles,
       }, 200, 300);
     } catch (e) {
-      return json({ error: e.message || "MovieBox stream resolution failed" }, 502);
+      return json({ success: false, error: e.message || "MovieBox stream resolution failed" }, 200);
     }
   }
 
