@@ -382,17 +382,17 @@ export async function fetchMovieBoxStream(p: {
 
   const resolveStreamUrl = (u?: string, rawUrl?: string) => {
     if (!u) return u
-    const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
-    if (isWebMirror) {
-      if (u.startsWith('/proxy')) return apiUrl(u)
-      if (u.includes('/proxy?url=')) {
-        const queryPart = u.substring(u.indexOf('/proxy?url='))
-        return apiUrl(queryPart)
-      }
-      return apiUrl(`/proxy?url=${encodeURIComponent(rawUrl || u)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`)
-    }
     if (u.startsWith('http://') || u.startsWith('https://')) return u
-    return MOVIEBOX_SERVICE_URL ? `${MOVIEBOX_SERVICE_URL}${u}` : apiUrl(u)
+    const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
+    if (MOVIEBOX_SERVICE_URL) {
+      const base = MOVIEBOX_SERVICE_URL
+      if (u.startsWith('/proxy')) {
+        const queryPart = u.substring(u.indexOf('/proxy'))
+        return `${base}${queryPart}`
+      }
+      return `${base}/proxy?url=${encodeURIComponent(rawUrl || u)}${isWebMirror ? '&referer=' + encodeURIComponent('https://123moviesfree.club/') : ''}`
+    }
+    return apiUrl(u)
   }
 
   return {

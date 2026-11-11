@@ -270,9 +270,9 @@ async function proxy(request, url, proxyBase = "/proxy", env = null) {
 
   let up;
   try {
-    if (isDirectAppCdn && midmanUrl) {
+    if ((isDirectAppCdn || isWebMirrorCdn) && midmanUrl) {
       try {
-        const midmanProxyUrl = `${midmanUrl}/proxy?url=${encodeURIComponent(t.href)}`;
+        const midmanProxyUrl = `${midmanUrl}/proxy?url=${encodeURIComponent(t.href)}${referer ? '&referer=' + encodeURIComponent(referer) : ''}`;
         const midmanHeaders = new Headers({ Accept: "*/*" });
         if (range) midmanHeaders.set("Range", range);
         const midmanUp = await fetch(midmanProxyUrl, { headers: midmanHeaders });
@@ -564,33 +564,6 @@ export async function handle(request, env) {
   }
 
   if (path === "/proxy" || path === "/api/proxy") return proxy(request, url, proxyBase, env);
-
-  if (path === "/api/test-cf-fetch") {
-    const targetUrl = url.searchParams.get("url") || "https://bcdnxw.hakunaymatata.com/mkvcnimas/e0db7c016aec0d091557ffbd4072fbe9.mp4?sign=3fda04f6525b334b51716c22bcae0014&t=1794406288";
-    const tests = {};
-    const testCases = [
-      { name: "default", h: { "Referer": "https://123moviesfree.club/", "User-Agent": UA } },
-      { name: "sflix-ref", h: { "Referer": "https://sflix.film/", "User-Agent": UA } },
-      { name: "moviebox-ref", h: { "Referer": "https://movieboxonline.net/", "User-Agent": UA } },
-      { name: "range-req", h: { "Referer": "https://123moviesfree.club/", "User-Agent": UA, "Range": "bytes=0-100" } },
-      { name: "sec-fetch", h: { "Referer": "https://123moviesfree.club/", "User-Agent": UA, "Sec-Fetch-Dest": "video", "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Site": "cross-site" } },
-      { name: "exoplayer", h: { "User-Agent": "ExoPlayerLib/2.19.1" } },
-    ];
-    for (const tc of testCases) {
-      try {
-        const resp = await fetch(targetUrl, { headers: tc.h });
-        tests[tc.name] = {
-          status: resp.status,
-          statusText: resp.statusText,
-          headers: Object.fromEntries(resp.headers.entries()),
-          body: !resp.ok ? (await resp.text()).slice(0, 100) : null
-        };
-      } catch (err) {
-        tests[tc.name] = { error: err.message };
-      }
-    }
-    return json({ targetUrl, tests });
-  }
 
   if (path === "/api" || path === "/api/" || path === "/api/docs") {
     const accept = request.headers.get("accept") || "";

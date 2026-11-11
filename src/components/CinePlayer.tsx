@@ -1320,7 +1320,9 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
           const targetUrl = u.searchParams.get('url')
           if (targetUrl) {
             console.warn('[CinePlayer] Edge proxy failed, falling back to Railway proxy:', targetUrl)
-            const fallbackUrl = `https://zenkai-movies-production.up.railway.app/proxy?url=${encodeURIComponent(targetUrl)}`
+            const isWeb = targetUrl.includes('bcdnxw') || targetUrl.includes('123moviesfree')
+            const refParam = isWeb ? `&referer=${encodeURIComponent('https://123moviesfree.club/')}` : ''
+            const fallbackUrl = `https://zenkai-movies-production.up.railway.app/proxy?url=${encodeURIComponent(targetUrl)}${refParam}`
             v.src = fallbackUrl
             v.load()
             v.play().catch(() => {})
