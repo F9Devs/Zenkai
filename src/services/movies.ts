@@ -340,27 +340,29 @@ export async function fetchMovieBoxStream(p: {
   let data: any = null
   let resOk = false
 
-  // 1. Primary: Cloudflare Pages Worker / local resolver (fast, same-origin, direct MD5 resolver)
-  try {
-    const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
-    if (res.ok) {
-      const d = await res.json().catch(() => null)
-      if (d && d.success === true && d.streams?.length > 0) {
-        data = d
-        resOk = true
-      } else if (d?.embedServers?.length && !data) {
-        data = d
-      }
-    }
-  } catch {}
-
-  // 2. Secondary: Direct Railway midman call (no Lovable proxy needed)
-  if (!resOk && MOVIEBOX_SERVICE_URL) {
+  // 1. Primary: Direct Railway midman call (fast, global US MovieBox profile, direct streaming proxy)
+  if (MOVIEBOX_SERVICE_URL) {
     const railwayUrl = `${MOVIEBOX_SERVICE_URL}/api/movies/stream?${qs}`
     try {
       const res = await fetch(railwayUrl, {
         signal: AbortSignal.timeout(8000),
       })
+      if (res.ok) {
+        const d = await res.json().catch(() => null)
+        if (d && d.success === true && d.streams?.length > 0) {
+          data = d
+          resOk = true
+        } else if (d?.embedServers?.length && !data) {
+          data = d
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Secondary: Cloudflare Pages Worker / local resolver fallback
+  if (!resOk) {
+    try {
+      const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
       if (res.ok) {
         const d = await res.json().catch(() => null)
         if (d && d.success === true && d.streams?.length > 0) {

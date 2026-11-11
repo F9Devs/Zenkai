@@ -878,7 +878,7 @@ export async function resolveMovieBoxStream({
     const qualityTag = s.quality || 'HD';
     const fileBase = [matched.title, epTag, dubTag, `[${qualityTag}]`].filter(Boolean).join(' ').trim();
     const downloadFileName = `${fileBase}.mp4`;
-    const isDirectAppCdn = /hakunaymatata|aoneroom/.test(s.url);
+    const isDirectAppCdn = !s.url.includes('bcdnxw') && /hakunaymatata|aoneroom/.test(s.url);
     const midman = (midmanUrl || 'https://zenkai-movies-production.up.railway.app').replace(/\/+$/, '');
     const midmanProxyUrl = `${midman}/proxy?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
 
