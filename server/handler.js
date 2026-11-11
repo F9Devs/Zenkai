@@ -782,9 +782,11 @@ export async function handle(request, env) {
         res = hit.v;
       } else {
         // Tier 1: Local edge MovieBox resolver (fast, direct, robust on Cloudflare Pages)
+        let localErrMsg = "";
         try {
           res = await resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl });
         } catch (localErr) {
+          localErrMsg = localErr.message || String(localErr);
           console.warn("[MovieBox] Local resolver error, falling back to midman:", localErr.message);
         }
 
@@ -827,7 +829,7 @@ export async function handle(request, env) {
       if (!res || !res.success) {
         res = {
           success: false,
-          error: res?.error || `No streams found for ${title || tmdbId}`,
+          error: res?.error || localErrMsg || `No streams found for ${title || tmdbId}`,
           server: "MovieBox",
           streams: []
         };

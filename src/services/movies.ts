@@ -350,9 +350,11 @@ export async function fetchMovieBoxStream(p: {
       })
       if (res.ok) {
         const d = await res.json().catch(() => null)
-        if (d && (d.success || d.embedServers?.length)) {
+        if (d && d.success === true && d.streams?.length > 0) {
           data = d
           resOk = true
+        } else if (d?.embedServers?.length && !data) {
+          data = d
         }
       }
     } catch {}
@@ -365,9 +367,11 @@ export async function fetchMovieBoxStream(p: {
         })
         if (res.ok) {
           const d = await res.json().catch(() => null)
-          if (d && (d.success || d.embedServers?.length)) {
+          if (d && d.success === true && d.streams?.length > 0) {
             data = d
             resOk = true
+          } else if (d?.embedServers?.length && !data) {
+            data = d
           }
         }
       } catch {}
@@ -379,10 +383,12 @@ export async function fetchMovieBoxStream(p: {
     try {
       const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
       const d = await res.json().catch(() => null)
-      if (d && (d.success || d.embedServers?.length)) {
+      if (d && d.success === true && d.streams?.length > 0) {
         data = d
         resOk = true
-      } else if (d?.error) {
+      } else if (d?.embedServers?.length && !data) {
+        data = d
+      } else if (d?.error && !data) {
         throw new Error(d.error)
       }
     } catch (err: any) {
