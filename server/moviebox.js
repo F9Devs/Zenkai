@@ -848,10 +848,11 @@ export async function resolveMovieBoxStream({
     const isDirectAppCdn = /hakunaymatata|aoneroom/.test(s.url);
     const midman = (midmanUrl || 'https://zenkai-movies-production.up.railway.app').replace(/\/+$/, '');
     const midmanProxyUrl = `${midman}/proxy?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
-    const edgeBase = (proxyBase || 'https://webpage-launchpad.lovable.app/api/public/proxy').replace(/\?url=.*$/, '').replace(/\/+$/, '');
 
-    const streamUrl = `${edgeBase}?url=${encodeURIComponent(midmanProxyUrl)}&seg=1`;
-    const downloadUrl = `${edgeBase}?url=${encodeURIComponent(midmanProxyUrl)}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;
+    // Direct Railway proxy streaming - zero double-proxy, handles Range 206 for MP4 files smoothly
+    const isHls = /\.m3u8/i.test(s.url);
+    const streamUrl = isHls ? `${midmanProxyUrl}&seg=1` : midmanProxyUrl;
+    const downloadUrl = `${midmanProxyUrl}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;
 
     return {
       quality: s.quality,

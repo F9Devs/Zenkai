@@ -678,14 +678,25 @@ function Episodes({
   )
 }
 
-/** Plain files (mp4 / webm) bypass hls.js; the proxied url keeps the real one in ?url= */
+/** Plain files (mp4 / webm / mkv) bypass hls.js; the proxied url keeps the real one in ?url= */
 const isFileSrc = (u: string) => {
+  if (!u) return false
   try {
-    const real = new URL(u, window.location.href).searchParams.get('url') ?? u
-    return /\.(mp4|webm|mkv)(\?|$)/i.test(real) && !/\.m3u8/i.test(real)
-  } catch {
-    return false
-  }
+    let curr = u
+    for (let i = 0; i < 5; i++) {
+      try {
+        const parsed = new URL(curr, window.location.href)
+        const inner = parsed.searchParams.get('url')
+        if (inner) curr = inner
+        else break
+      } catch {
+        break
+      }
+    }
+    const decoded = decodeURIComponent(curr)
+    if (/\.m3u8(\?|&|$)/i.test(decoded)) return false
+    return /\.(mp4|webm|mkv)(\?|&|$)/i.test(decoded) || /\.(mp4|webm|mkv)/i.test(decoded)
+  } catch { return false }
 }
 let noSeg = false
 const ALANG = 'zp-alang'
@@ -1276,7 +1287,8 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
         }
       })
     } else if (isFileSrc(streamUrl) || v.canPlayType('application/vnd.apple.mpegurl')) {
-      v.src = streamUrl
+      const cleanUrl = isFileSrc(streamUrl) ? streamUrl.replace(/([?&])seg=1(&|$)/, (_m, a, b) => (b ? a : '')) : streamUrl
+      v.src = cleanUrl
       v.addEventListener('loadedmetadata', onMeta)
       v.addEventListener('error', onVideoError)
     } else {

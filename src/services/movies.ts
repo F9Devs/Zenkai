@@ -340,12 +340,25 @@ export async function fetchMovieBoxStream(p: {
   let data: any = null
   let resOk = false
 
-  // 1. Primary: Fetch Railway via Lovable Edge Proxy (zero CF worker invocations, unblocked, fast)
-  if (MOVIEBOX_SERVICE_URL) {
+  // 1. Primary: Cloudflare Pages Worker / local resolver (fast, same-origin, direct MD5 resolver)
+  try {
+    const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
+    if (res.ok) {
+      const d = await res.json().catch(() => null)
+      if (d && d.success === true && d.streams?.length > 0) {
+        data = d
+        resOk = true
+      } else if (d?.embedServers?.length && !data) {
+        data = d
+      }
+    }
+  } catch {}
+
+  // 2. Secondary: Direct Railway midman call (no Lovable proxy needed)
+  if (!resOk && MOVIEBOX_SERVICE_URL) {
     const railwayUrl = `${MOVIEBOX_SERVICE_URL}/api/movies/stream?${qs}`
-    const lovableFetchUrl = `${LOVABLE_PROXY_URL}?url=${encodeURIComponent(railwayUrl)}`
     try {
-      const res = await fetch(lovableFetchUrl, {
+      const res = await fetch(railwayUrl, {
         signal: AbortSignal.timeout(8000),
       })
       if (res.ok) {
@@ -358,42 +371,6 @@ export async function fetchMovieBoxStream(p: {
         }
       }
     } catch {}
-
-    // 2. Secondary: Direct Railway midman call
-    if (!resOk) {
-      try {
-        const res = await fetch(railwayUrl, {
-          signal: AbortSignal.timeout(8000),
-        })
-        if (res.ok) {
-          const d = await res.json().catch(() => null)
-          if (d && d.success === true && d.streams?.length > 0) {
-            data = d
-            resOk = true
-          } else if (d?.embedServers?.length && !data) {
-            data = d
-          }
-        }
-      } catch {}
-    }
-  }
-
-  // 3. Fallback: Cloudflare Pages Worker / backend resolver
-  if (!resOk) {
-    try {
-      const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
-      const d = await res.json().catch(() => null)
-      if (d && d.success === true && d.streams?.length > 0) {
-        data = d
-        resOk = true
-      } else if (d?.embedServers?.length && !data) {
-        data = d
-      } else if (d?.error && !data) {
-        throw new Error(d.error)
-      }
-    } catch (err: any) {
-      if (!data) throw new Error(err?.message ?? 'MovieBox stream not available for this title')
-    }
   }
 
   if (!data?.success && !data?.embedServers?.length) {

@@ -193,7 +193,15 @@ export async function shield(request, env, path, json) {
   const isEmbedReq = referer && (referer.includes("/embed") || request.headers.has("X-Zenkai-Embed"));
   const isWebOrigin = isAllowedDomain(origin) || isAllowedDomain(referer);
 
-  if (cat === "proxy" || isEmbedReq || path.startsWith("/api/embed/") || path.startsWith("/api/servers-available") || path.startsWith("/api/stream/servers")) {
+  if (
+    cat === "proxy" ||
+    isEmbedReq ||
+    path.startsWith("/api/embed/") ||
+    path.startsWith("/api/servers-available") ||
+    path.startsWith("/api/stream/servers") ||
+    path.startsWith("/api/movies/") ||
+    path.startsWith("/api/stream")
+  ) {
     if (isWebOrigin || isEmbedReq) return null;
   }
 
