@@ -102,7 +102,8 @@ export default function MovieWatchPage() {
 
   const activeStreamUrl = companion.installed
     ? (activeStream?.rawStreamUrl || activeStream?.url || activeStream?.streamUrl || '')
-    : (activeStream?.streamUrl || mbStream.data?.streamUrl || '')
+    : (activeStream?.proxyStreamUrl || activeStream?.streamUrl || mbStream.data?.streamUrl || '')
+  const fallbackStreamUrl = activeStream?.proxyStreamUrl || mbStream.data?.proxyStreamUrl || ''
   const activeDownloadUrl = companion.installed
     ? (activeStream?.rawStreamUrl || activeStream?.downloadUrl || activeStream?.url || '')
     : (activeStream?.downloadUrl || mbStream.data?.downloadUrl || '')
@@ -204,7 +205,7 @@ export default function MovieWatchPage() {
             {mbStream.data && (
               <CinePlayer
                 streamUrl={activeStreamUrl}
-                fallbackStreamUrl={activeStream?.streamUrl || mbStream.data?.streamUrl || ''}
+                fallbackStreamUrl={fallbackStreamUrl}
                 title={title}
                 episode={type === 'tv' ? episode : 1}
                 episodeTitle={type === 'tv' ? epName : undefined}
@@ -221,7 +222,7 @@ export default function MovieWatchPage() {
                 }))}
                 qualities={availableStreams.map((s) => ({
                   label: s.quality,
-                  url: companion.installed ? (s.rawStreamUrl || s.url || s.streamUrl) : s.streamUrl,
+                  url: companion.installed ? (s.rawStreamUrl || s.url || s.streamUrl) : (s.proxyStreamUrl || s.streamUrl),
                   size: s.size,
                   sizeLabel: s.sizeLabel,
                   downloadUrl: companion.installed ? (s.rawStreamUrl || s.downloadUrl || s.url) : s.downloadUrl,

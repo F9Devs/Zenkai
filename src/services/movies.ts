@@ -293,6 +293,7 @@ export interface MovieStream {
   sizeLabel?: string | null
   duration?: number
   streamUrl: string
+  proxyStreamUrl?: string
   downloadUrl: string
   downloadFileName?: string
   rawStreamUrl?: string
@@ -305,6 +306,7 @@ export interface MovieStreamResult {
   title: string
   subjectId: string
   streamUrl: string
+  proxyStreamUrl?: string
   downloadUrl?: string
   rawStreamUrl: string
   quality: string
@@ -384,23 +386,8 @@ export async function fetchMovieBoxStream(p: {
   const hasCompanion = isCompanionActive()
   const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-  const resolveStreamUrl = (u?: string, rawUrl?: string) => {
+  const resolveProxyStreamUrl = (u?: string, rawUrl?: string) => {
     if (!u) return u
-
-    // If Zenkai Companion extension is active, use the raw CDN stream DIRECTLY with zero proxies!
-    if (hasCompanion) {
-      let directUrl = rawUrl
-      if (!directUrl && u.includes('url=')) {
-        try {
-          const parsed = new URL(u, typeof window !== 'undefined' ? window.location.href : 'http://localhost')
-          directUrl = parsed.searchParams.get('url') || undefined
-        } catch {}
-      }
-      if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
-        return directUrl
-      }
-    }
-
     const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
 
     // On local machine (dev server), ALWAYS use the local domestic proxy for bcdnxw
@@ -424,15 +411,42 @@ export async function fetchMovieBoxStream(p: {
     return MOVIEBOX_SERVICE_URL ? `${MOVIEBOX_SERVICE_URL}${u}` : apiUrl(u)
   }
 
+  const resolveStreamUrl = (u?: string, rawUrl?: string) => {
+    if (!u) return u
+
+    // If Zenkai Companion extension is active, use the raw CDN stream DIRECTLY with zero proxies!
+    if (hasCompanion) {
+      let directUrl = rawUrl
+      if (!directUrl && u.includes('url=')) {
+        try {
+          const parsed = new URL(u, typeof window !== 'undefined' ? window.location.href : 'http://localhost')
+          directUrl = parsed.searchParams.get('url') || undefined
+        } catch {}
+      }
+      if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
+        return directUrl
+      }
+    }
+
+    return resolveProxyStreamUrl(u, rawUrl)
+  }
+
   return {
     ...data,
+    proxyStreamUrl: resolveProxyStreamUrl(data.streamUrl, data.rawStreamUrl),
     streamUrl: resolveStreamUrl(data.streamUrl, data.rawStreamUrl),
     downloadUrl: data.downloadUrl ? resolveStreamUrl(data.downloadUrl, data.rawStreamUrl) : undefined,
-    streams: (data.streams || []).map((s: MovieStream) => ({
-      ...s,
-      streamUrl: resolveStreamUrl(s.streamUrl, s.url),
-      downloadUrl: s.downloadUrl ? resolveStreamUrl(s.downloadUrl, s.url) : undefined,
-    })),
+    streams: (data.streams || []).map((s: MovieStream) => {
+      const direct = s.url || s.rawStreamUrl || ''
+      const proxied = resolveProxyStreamUrl(s.streamUrl, s.url)
+      return {
+        ...s,
+        rawStreamUrl: direct,
+        proxyStreamUrl: proxied,
+        streamUrl: resolveStreamUrl(s.streamUrl, s.url),
+        downloadUrl: s.downloadUrl ? resolveStreamUrl(s.downloadUrl, s.url) : undefined,
+      }
+    }),
     subtitles: (data.subtitles || []).map((s: { id: string; label: string; language: string; lang: string; url: string; source: string }) => ({
       ...s,
       url: resolveStreamUrl(s.url),

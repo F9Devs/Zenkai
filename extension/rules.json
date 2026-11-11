@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "priority": 1,
+    "priority": 2,
     "action": {
       "type": "modifyHeaders",
       "requestHeaders": [
@@ -58,13 +58,11 @@
       "requestHeaders": [
         {
           "header": "Referer",
-          "operation": "set",
-          "value": "https://123moviesfree.club/"
+          "operation": "remove"
         },
         {
           "header": "Origin",
-          "operation": "set",
-          "value": "https://123moviesfree.club"
+          "operation": "remove"
         }
       ],
       "responseHeaders": [
