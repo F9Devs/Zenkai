@@ -265,7 +265,7 @@ async function proxy(request, url, proxyBase = "/proxy") {
   const midmanUrl = (
     env?.VITE_MOVIEBOX_PROXY_URL || 
     env?.MOVIEBOX_PROXY_URL || 
-    (typeof process !== "undefined" ? (process.env?.VITE_MOVIEBOX_PROXY_URL || process.env?.MOVIEBOX_PROXY_URL) : "")
+    (typeof process !== "undefined" ? (process.env?.VITE_MOVIEBOX_PROXY_URL || process.env?.MOVIEBOX_PROXY_URL) : "") || "https://zenkai-movies-production.up.railway.app"
   )?.replace(/\/+$/, "");
 
   let up;
@@ -749,7 +749,7 @@ export async function handle(request, env) {
         }));
       return json({ results }, 200, 600);
     } catch {
-      return json({ error: "Search is unavailable right now" }, 502);
+      return json({ results: [], error: "Search is unavailable right now" }, 200);
     }
   }
 
@@ -787,13 +787,15 @@ export async function handle(request, env) {
               ...(dubId ? { dub: dubId } : {}),
               ...(imdbId ? { imdb: imdbId } : {})
             });
-            const extResp = await fetch(`${midmanUrl}/api/movies/stream?${extQs.toString()}`, {
+            const railwayStream = `${midmanUrl}/api/movies/stream?${extQs.toString()}`;
+            const proxyStream = `${proxyBase}?url=${encodeURIComponent(railwayStream)}`;
+            const extResp = await fetch(proxyStream, {
               headers: { "Accept": "application/json" },
-              signal: AbortSignal.timeout(12000)
-            });
+              signal: AbortSignal.timeout(10000)
+            }).catch(() => fetch(railwayStream, { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }));
             if (extResp.ok) {
-              const extData = await extResp.json();
-              if (extData && extData.success) {
+              const extData = await extResp.json().catch(() => null);
+              if (extData && (extData.success || extData.embedServers?.length)) {
                 return extData;
               }
             }

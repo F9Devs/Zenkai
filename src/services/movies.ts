@@ -85,6 +85,9 @@ const toItem = (r: RawItem, fallback: MediaType): MovieItem | null => {
 
 const mem = new Map<string, Promise<unknown>>()
 
+const RAILWAY_URL = 'https://zenkai-movies-production.up.railway.app'
+const LOVABLE_PROXY_URL = 'https://webpage-launchpad.lovable.app/api/public/proxy'
+
 async function get<T>(path: string, params: Record<string, string | number | undefined> = {}): Promise<T> {
   const qs = new URLSearchParams()
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') qs.set(k, String(v))
@@ -92,16 +95,38 @@ async function get<T>(path: string, params: Record<string, string | number | und
   const url = apiUrl(`/api/${path}${tail}`)
   const hit = mem.get(url)
   if (hit) return hit as Promise<T>
-  // ponytail: TMDB proxy called straight from the browser (no Worker request); the Worker is only the fallback
-  const direct = `https://aniversee.vercel.app/api/tmdb/${path.slice(7)}?${new URLSearchParams({ language: 'en-US', include_adult: 'false', ...Object.fromEntries(qs) })}`
+
   const p = (async () => {
-    const res = await fetch(direct).then((r) => (r.ok ? r : fetch(url)), () => fetch(url))
-    const data = (await res.json().catch(() => null)) as T | { error?: string } | null
-    if (!res.ok || !data) throw new Error((data as { error?: string } | null)?.error ?? `Request failed (${res.status})`)
+    // 1. Fetch via Railway through Lovable Edge Proxy (bypasses ISP blocks, Cloudflare 100k limits, and anti-bot checks)
+    const sub = path.startsWith('movies/') ? path.slice('movies/'.length) : path
+    const railwayUrl = `${RAILWAY_URL}/api/movies/${sub}${tail}`
+    const lovableUrl = `${LOVABLE_PROXY_URL}?url=${encodeURIComponent(railwayUrl)}`
+
+    try {
+      const res = await fetch(lovableUrl, { signal: AbortSignal.timeout(6000) })
+      if (res.ok) {
+        const data = await res.json().catch(() => null)
+        if (data && !data.error) return data as T
+      }
+    } catch {}
+
+    // 2. Direct Railway fallback
+    try {
+      const res = await fetch(railwayUrl, { signal: AbortSignal.timeout(6000) })
+      if (res.ok) {
+        const data = await res.json().catch(() => null)
+        if (data && !data.error) return data as T
+      }
+    } catch {}
+
+    // 3. Cloudflare Pages Worker fallback
+    const res = await fetch(url).catch(() => null)
+    const data = res ? ((await res.json().catch(() => null)) as T | { error?: string } | null) : null
+    if (!res || !res.ok || !data) throw new Error((data as { error?: string } | null)?.error ?? `Request failed`)
     return data as T
   })()
   mem.set(url, p)
-  p.catch(() => mem.delete(url)) // never keep a failure around
+  p.catch(() => mem.delete(url))
   return p
 }
 
@@ -289,7 +314,7 @@ export interface MovieStreamResult {
   referer: string
 }
 
-const MOVIEBOX_SERVICE_URL = ((import.meta.env.VITE_MOVIEBOX_PROXY_URL as string | undefined) || '').replace(/\/+$/, '')
+const MOVIEBOX_SERVICE_URL = ((import.meta.env.VITE_MOVIEBOX_PROXY_URL as string | undefined) || 'https://zenkai-movies-production.up.railway.app').replace(/\/+$/, '')
 
 export async function fetchMovieBoxStream(p: {
   id: number
@@ -315,33 +340,58 @@ export async function fetchMovieBoxStream(p: {
   let data: any = null
   let resOk = false
 
-  // 1. If external midman service URL is configured, try it first
+  // 1. Primary: Fetch Railway via Lovable Edge Proxy (zero CF worker invocations, unblocked, fast)
   if (MOVIEBOX_SERVICE_URL) {
+    const railwayUrl = `${MOVIEBOX_SERVICE_URL}/api/movies/stream?${qs}`
+    const lovableFetchUrl = `${LOVABLE_PROXY_URL}?url=${encodeURIComponent(railwayUrl)}`
     try {
-      const res = await fetch(`${MOVIEBOX_SERVICE_URL}/api/movies/stream?${qs}`, {
-        signal: AbortSignal.timeout(6000),
+      const res = await fetch(lovableFetchUrl, {
+        signal: AbortSignal.timeout(8000),
       })
       if (res.ok) {
-        const d = await res.json()
-        if (d?.success) {
+        const d = await res.json().catch(() => null)
+        if (d && (d.success || d.embedServers?.length)) {
           data = d
           resOk = true
         }
       }
     } catch {}
+
+    // 2. Secondary: Direct Railway midman call
+    if (!resOk) {
+      try {
+        const res = await fetch(railwayUrl, {
+          signal: AbortSignal.timeout(8000),
+        })
+        if (res.ok) {
+          const d = await res.json().catch(() => null)
+          if (d && (d.success || d.embedServers?.length)) {
+            data = d
+            resOk = true
+          }
+        }
+      } catch {}
+    }
   }
 
-  // 2. Fall back to Cloudflare Pages Worker / backend resolver for lightweight JSON metadata
+  // 3. Fallback: Cloudflare Pages Worker / backend resolver
   if (!resOk) {
-    const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
     try {
-      data = await res.json()
-    } catch {
-      data = null
+      const res = await fetch(apiUrl(`/api/movies/stream?${qs}`))
+      const d = await res.json().catch(() => null)
+      if (d && (d.success || d.embedServers?.length)) {
+        data = d
+        resOk = true
+      } else if (d?.error) {
+        throw new Error(d.error)
+      }
+    } catch (err: any) {
+      if (!data) throw new Error(err?.message ?? 'MovieBox stream not available for this title')
     }
-    if (!res.ok || !data?.success) {
-      throw new Error(data?.error ?? 'MovieBox stream not available for this title')
-    }
+  }
+
+  if (!data?.success && !data?.embedServers?.length) {
+    throw new Error(data?.error ?? 'MovieBox stream not available for this title')
   }
 
   const resolveStreamUrl = (u?: string) => {
