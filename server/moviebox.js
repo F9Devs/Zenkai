@@ -845,15 +845,12 @@ export async function resolveMovieBoxStream({
     const fileBase = [matched.title, epTag, dubTag, `[${qualityTag}]`].filter(Boolean).join(' ').trim();
     const downloadFileName = `${fileBase}.mp4`;
     const isDirectAppCdn = /hakunaymatata|aoneroom/.test(s.url);
-    const resolvedMediaUrl = (isDirectAppCdn && midmanUrl)
-      ? `${midmanUrl.replace(/\/+$/, '')}/proxy?url=${encodeURIComponent(s.url)}`
-      : s.url;
-    const streamUrl = proxyBase
-      ? `${proxyBase}?url=${encodeURIComponent(resolvedMediaUrl)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}&seg=1`
-      : resolvedMediaUrl;
-    const downloadUrl = proxyBase
-      ? `${proxyBase}?url=${encodeURIComponent(resolvedMediaUrl)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}&dl=1&fn=${encodeURIComponent(downloadFileName)}`
-      : resolvedMediaUrl;
+    const midman = (midmanUrl || 'https://zenkai-movies-production.up.railway.app').replace(/\/+$/, '');
+    const midmanProxyUrl = `${midman}/proxy?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
+    const edgeBase = (proxyBase || 'https://webpage-launchpad.lovable.app/api/public/proxy').replace(/\?url=.*$/, '').replace(/\/+$/, '');
+
+    const streamUrl = `${edgeBase}?url=${encodeURIComponent(midmanProxyUrl)}&seg=1`;
+    const downloadUrl = `${edgeBase}?url=${encodeURIComponent(midmanProxyUrl)}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;
 
     return {
       quality: s.quality,

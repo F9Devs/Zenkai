@@ -1278,7 +1278,28 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
     } else if (isFileSrc(streamUrl) || v.canPlayType('application/vnd.apple.mpegurl')) {
       v.src = streamUrl
       v.addEventListener('loadedmetadata', onMeta)
+      v.addEventListener('error', onVideoError)
     } else {
+      setErr(true)
+      setBusy(false)
+    }
+
+    function onVideoError() {
+      if (!v) return;
+      // If playing via Lovable edge and Lovable is blocked or returns error, fallback directly to Railway!
+      if (v.src && v.src.includes('lovable.app') && v.src.includes('url=')) {
+        try {
+          const u = new URL(v.src)
+          const innerUrl = u.searchParams.get('url')
+          if (innerUrl && innerUrl !== v.src) {
+            console.warn('[CinePlayer] Lovable proxy blocked/failed, falling back to direct Railway proxy:', innerUrl)
+            v.src = innerUrl
+            v.load()
+            v.play().catch(() => {})
+            return
+          }
+        } catch {}
+      }
       setErr(true)
       setBusy(false)
     }
@@ -1303,6 +1324,7 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
       window.removeEventListener('zenkai:devtools-halt', onHalt)
       window.clearTimeout(t)
       v.removeEventListener('loadedmetadata', onMeta)
+      v.removeEventListener('error', onVideoError)
       if (h) h.destroy()
       hls.current = null
       if (!h) {
