@@ -4,8 +4,12 @@ const SECRET_KEY_ALT_B64 = "WHFuMm5uTzQxL0w5Mm8xaXVYaFNMSFRiWHZZNFo1Wlo2Mm04bVNM
 const MODERN_USER_AGENT = "com.community.mbox.in/50020130 (Linux; U; Android 14; en_IN; Pixel 8; Build/UD1A.230803.041; Cronet/145.0.7582.0)";
 const WEB_USER_AGENT = "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Mobile Safari/537.36";
 const NATIVE_API_BASE = "https://api3.aoneroom.com";
-const BOOTSTRAP_HOST = "https://apig.inmoviebox.com";
-const BOOTSTRAP_URL = `${BOOTSTRAP_HOST}/wefeed-mobile-bff/tab/ranking-list?tabId=0&categoryType=4516404531735022304&page=1&perPage=1`;
+const BOOTSTRAP_HOSTS = [
+  "https://api3.aoneroom.com",
+  "https://apig.inmoviebox.com",
+  "https://api6.aoneroom.com"
+];
+const BOOTSTRAP_URL = `${BOOTSTRAP_HOSTS[0]}/wefeed-mobile-bff/tab/ranking-list?tabId=0&categoryType=4516404531735022304&page=1&perPage=1`;
 import { tmdbFetch } from "./tmdb.js";
 const TMDB_PROXY_BASE = "https://aniversee.vercel.app/api/tmdb";
 
@@ -288,23 +292,27 @@ export async function bootstrapToken() {
   if (cachedToken && Date.now() < tokenExpiresAt) {
     return cachedToken;
   }
-  const headers = buildAuthHeaders('GET', BOOTSTRAP_URL, null, null, getDeviceId());
-  const res = await fetch(BOOTSTRAP_URL, {
-    headers,
-    signal: AbortSignal.timeout(8000),
-  });
-
-  const xUser = res.headers.get('x-user');
-  if (!xUser) throw new Error(`Bootstrap failed: HTTP ${res.status}`);
-
-  try {
-    const data = JSON.parse(xUser);
-    cachedToken = data.token;
-    tokenExpiresAt = Date.now() + 2 * 3600 * 1000;
-    return cachedToken;
-  } catch (err) {
-    throw new Error(`Failed to parse x-user token: ${err.message}`);
+  let lastErr = null;
+  for (const host of BOOTSTRAP_HOSTS) {
+    try {
+      const bUrl = `${host}/wefeed-mobile-bff/tab/ranking-list?tabId=0&categoryType=4516404531735022304&page=1&perPage=1`;
+      const headers = buildAuthHeaders('GET', bUrl, null, null, getDeviceId());
+      const res = await fetch(bUrl, {
+        headers,
+        signal: AbortSignal.timeout(8000),
+      });
+      const xUser = res.headers.get('x-user');
+      if (xUser) {
+        const data = JSON.parse(xUser);
+        cachedToken = data.token;
+        tokenExpiresAt = Date.now() + 2 * 3600 * 1000;
+        return cachedToken;
+      }
+    } catch (err) {
+      lastErr = err;
+    }
   }
+  throw new Error(`Bootstrap failed: ${lastErr ? lastErr.message : 'no x-user token received'}`);
 }
 
 export async function apiRequest(method, pathOrUrl, bodyDict = null) {
