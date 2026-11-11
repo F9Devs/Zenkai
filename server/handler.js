@@ -230,7 +230,7 @@ function refererFor(host, requested) {
   return requested || null;
 }
 
-async function proxy(request, url, proxyBase = "/proxy") {
+async function proxy(request, url, proxyBase = "/proxy", env = null) {
   const target = url.searchParams.get("url");
   const check = validateProxyUrl(target);
   if (!check.valid) return json({ error: check.error }, 403);
@@ -255,7 +255,7 @@ async function proxy(request, url, proxyBase = "/proxy") {
       headers.set("Origin", referer.replace(/\/$/, ""));
     }
   }
-  if (!isDirectAppCdn && !isWebMirrorCdn) {
+  if (!isDirectAppCdn) {
     headers.set("User-Agent", UA);
   }
 
@@ -563,7 +563,7 @@ export async function handle(request, env) {
     });
   }
 
-  if (path === "/proxy" || path === "/api/proxy") return proxy(request, url, proxyBase);
+  if (path === "/proxy" || path === "/api/proxy") return proxy(request, url, proxyBase, env);
 
   if (path === "/api" || path === "/api/" || path === "/api/docs") {
     const accept = request.headers.get("accept") || "";

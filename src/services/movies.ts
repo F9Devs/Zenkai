@@ -295,6 +295,7 @@ export interface MovieStream {
   downloadUrl: string
   downloadFileName?: string
   rawStreamUrl?: string
+  url?: string
 }
 
 export interface MovieStreamResult {
@@ -379,20 +380,29 @@ export async function fetchMovieBoxStream(p: {
     throw new Error(data?.error ?? 'MovieBox stream not available for this title')
   }
 
-  const resolveStreamUrl = (u?: string) => {
+  const resolveStreamUrl = (u?: string, rawUrl?: string) => {
     if (!u) return u
+    const isWebMirror = (rawUrl && rawUrl.includes('bcdnxw')) || u.includes('bcdnxw')
+    if (isWebMirror) {
+      if (u.startsWith('/proxy')) return apiUrl(u)
+      if (u.includes('/proxy?url=')) {
+        const queryPart = u.substring(u.indexOf('/proxy?url='))
+        return apiUrl(queryPart)
+      }
+      return apiUrl(`/proxy?url=${encodeURIComponent(rawUrl || u)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`)
+    }
     if (u.startsWith('http://') || u.startsWith('https://')) return u
     return MOVIEBOX_SERVICE_URL ? `${MOVIEBOX_SERVICE_URL}${u}` : apiUrl(u)
   }
 
   return {
     ...data,
-    streamUrl: resolveStreamUrl(data.streamUrl),
-    downloadUrl: data.downloadUrl ? resolveStreamUrl(data.downloadUrl) : undefined,
+    streamUrl: resolveStreamUrl(data.streamUrl, data.rawStreamUrl),
+    downloadUrl: data.downloadUrl ? resolveStreamUrl(data.downloadUrl, data.rawStreamUrl) : undefined,
     streams: (data.streams || []).map((s: MovieStream) => ({
       ...s,
-      streamUrl: resolveStreamUrl(s.streamUrl),
-      downloadUrl: s.downloadUrl ? resolveStreamUrl(s.downloadUrl) : undefined,
+      streamUrl: resolveStreamUrl(s.streamUrl, s.url),
+      downloadUrl: s.downloadUrl ? resolveStreamUrl(s.downloadUrl, s.url) : undefined,
     })),
     subtitles: (data.subtitles || []).map((s: { id: string; label: string; language: string; lang: string; url: string; source: string }) => ({
       ...s,

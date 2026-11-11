@@ -881,11 +881,15 @@ export async function resolveMovieBoxStream({
     const isDirectAppCdn = !s.url.includes('bcdnxw') && /hakunaymatata|aoneroom/.test(s.url);
     const midman = (midmanUrl || 'https://zenkai-movies-production.up.railway.app').replace(/\/+$/, '');
     const midmanProxyUrl = `${midman}/proxy?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
+    const baseProxy = (proxyBase || '/proxy').replace(/\?url=.*$/, '').replace(/\/+$/, '');
+    const edgeProxyUrl = `${baseProxy}?url=${encodeURIComponent(s.url)}${isDirectAppCdn ? '' : '&referer=' + encodeURIComponent('https://123moviesfree.club/')}`;
 
-    // Direct Railway proxy streaming - zero double-proxy, handles Range 206 for MP4 files smoothly
+    // Direct App CDN -> Railway midman proxy (Singapore)
+    // Web Mirror CDN (bcdnxw for TV series & dubs) -> Local/Edge proxy (India/Cloudflare)
+    const effectiveProxyUrl = isDirectAppCdn ? midmanProxyUrl : edgeProxyUrl;
     const isHls = /\.m3u8/i.test(s.url);
-    const streamUrl = isHls ? `${midmanProxyUrl}&seg=1` : midmanProxyUrl;
-    const downloadUrl = `${midmanProxyUrl}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;
+    const streamUrl = isHls ? `${effectiveProxyUrl}&seg=1` : effectiveProxyUrl;
+    const downloadUrl = `${effectiveProxyUrl}&dl=1&fn=${encodeURIComponent(downloadFileName)}`;
 
     return {
       quality: s.quality,

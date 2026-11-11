@@ -1298,14 +1298,30 @@ const slider = (label: string, key: 'opacity' | 'lh' | 'width' | 'blur' | 'scale
 
     function onVideoError() {
       if (!v) return;
-      // If playing via Lovable edge and Lovable is blocked or returns error, fallback directly to Railway!
-      if (v.src && v.src.includes('lovable.app') && v.src.includes('url=')) {
+      // 1. If currently playing via Railway and it failed (e.g. bcdnxw 426), fallback to local /proxy
+      if (v.src && v.src.includes('railway.app') && v.src.includes('url=')) {
         try {
           const u = new URL(v.src)
-          const innerUrl = u.searchParams.get('url')
-          if (innerUrl && innerUrl !== v.src) {
-            console.warn('[CinePlayer] Lovable proxy blocked/failed, falling back to direct Railway proxy:', innerUrl)
-            v.src = innerUrl
+          const targetUrl = u.searchParams.get('url')
+          if (targetUrl) {
+            console.warn('[CinePlayer] Railway proxy failed, falling back to local edge proxy:', targetUrl)
+            const fallbackUrl = apiUrl(`/proxy?url=${encodeURIComponent(targetUrl)}&referer=${encodeURIComponent('https://123moviesfree.club/')}`)
+            v.src = fallbackUrl
+            v.load()
+            v.play().catch(() => {})
+            return
+          }
+        } catch {}
+      }
+      // 2. If currently playing via Lovable edge or local proxy and it failed, fallback to Railway
+      if (v.src && (v.src.includes('lovable.app') || (v.src.includes('/proxy?url=') && !v.src.includes('railway.app')))) {
+        try {
+          const u = new URL(v.src)
+          const targetUrl = u.searchParams.get('url')
+          if (targetUrl) {
+            console.warn('[CinePlayer] Edge proxy failed, falling back to Railway proxy:', targetUrl)
+            const fallbackUrl = `https://zenkai-movies-production.up.railway.app/proxy?url=${encodeURIComponent(targetUrl)}`
+            v.src = fallbackUrl
             v.load()
             v.play().catch(() => {})
             return
