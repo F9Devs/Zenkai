@@ -31,7 +31,8 @@ import * as manga from "./manga.js";
 import { shield } from "./shield.js";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-const TMDB = "https://aniversee.vercel.app/api/tmdb";
+import { tmdbFetch, TMDB_FALLBACK } from "./tmdb.js";
+const TMDB = TMDB_FALLBACK;
 const ANIBRIDGE = "https://anibridge.eliasbenb.dev/api/mappings?source.descriptor=anilist:";
 const ARM = "https://arm.haglund.dev/api/v2/ids?source=anilist&id=";
 const OPENSUBS = "https://opensubtitles-v3.strem.io/subtitles";
@@ -133,22 +134,22 @@ const cleanTitle = (t = "") =>
     .replace(/\s*:\s*$/, "")
     .trim();
 
-export async function tmdbFor(anilistId, title, format) {
+export async function tmdbFor(anilistId, title, format, env = null) {
   const map = anilistId ? await mapOf(anilistId) : null;
   let ref = map?.tmdb ? { id: map.tmdb.id, type: map.tmdb.type, season: map.tmdb.season } : null;
 
   if (!ref && title) {
     try {
       const want = format === "MOVIE" ? "movie" : "tv";
-      const res = await getJson(`${TMDB}/search/multi?query=${encodeURIComponent(cleanTitle(title) || title)}`);
+      const res = await tmdbFetch(`search/multi?query=${encodeURIComponent(cleanTitle(title) || title)}`, env);
       const hit = res.results?.find((r) => r.media_type === want) || res.results?.find((r) => r.media_type === "tv" || r.media_type === "movie");
       if (hit) ref = { id: hit.id, type: hit.media_type, season: null };
     } catch {}
   }
   if (!ref) return { map, tmdb: null };
 
-  const d = await getJson(
-    `${TMDB}/${ref.type}/${ref.id}?language=en-US&append_to_response=images,videos,credits,external_ids,content_ratings,release_dates&include_image_language=en,null`,
+  const d = await tmdbFetch(
+    `${ref.type}/${ref.id}?language=en-US&append_to_response=images,videos,credits,external_ids,content_ratings,release_dates&include_image_language=en,null`, env
   );
 
   const pngs = (d.images?.logos || []).filter((l) => l.file_path && !l.file_path.toLowerCase().endsWith(".svg"));
@@ -687,7 +688,7 @@ export async function handle(request, env) {
     const title = q("title");
     if (!id && !title) return json({ error: "Missing id or title" }, 400);
     try {
-      const r = await cached(`tmdb:${id}:${title}`, 24 * 3600e3, () => tmdbFor(id, title, q("format").toUpperCase()));
+      const r = await cached(`tmdb:${id}:${title}`, 24 * 3600e3, () => tmdbFor(id, title, q("format").toUpperCase(), env));
       return json({ success: !!r?.tmdb, mapping: r?.map ?? null, tmdb: r?.tmdb ?? null }, 200, 86400);
     } catch {
       return json({ success: false, mapping: null, tmdb: null }, 200, 300);
@@ -700,7 +701,7 @@ export async function handle(request, env) {
     const kind = ["movie", "tv"].includes(q("type")) ? q("type") : "multi";
     if (term.length < 2) return json({ results: [] }, 200, 60);
     try {
-      const d = await cached(`msearch:${kind}:${term.toLowerCase()}`, 10 * 60e3, () => getJson(`${TMDB}/search/${kind}?query=${encodeURIComponent(term)}&include_adult=false&language=en-US`));
+      const d = await cached(`msearch:${kind}:${term.toLowerCase()}`, 10 * 60e3, () => tmdbFetch(`search/${kind}?query=${encodeURIComponent(term)}&include_adult=false&language=en-US`, env));
       const results = (d.results || [])
         .filter((r) => (r.media_type ? r.media_type === "movie" || r.media_type === "tv" : true) && r.poster_path)
         .slice(0, 20)
@@ -746,7 +747,7 @@ export async function handle(request, env) {
       if (!effectiveImdb && tmdbId) {
         try {
           const d = await cached(`tmdb_ext:${type}:${tmdbId}`, 24 * 3600e3, () =>
-            getJson(`${TMDB}/${type}/${tmdbId}?append_to_response=external_ids`)
+            tmdbFetch(`${type}/${tmdbId}?append_to_response=external_ids`, env)
           );
           effectiveImdb = d.external_ids?.imdb_id || d.imdb_id;
         } catch {}
@@ -781,16 +782,17 @@ export async function handle(request, env) {
   }
 
   // Movies / TV catalogue: whitelisted read-only passthrough to the TMDB proxy, e.g. /api/movies/trending/movie/week
-  if (path.startsWith("/api/movies/")) {
-    const sub = path.slice("/api/movies/".length).replace(/\/+$/, "");
-    const ok = /^(trending\/(movie|tv)\/(day|week)|(movie|tv)\/(popular|top_rated|now_playing|upcoming|airing_today|on_the_air)|discover\/(movie|tv)|search\/(movie|tv|multi)|(movie|tv)\/\d+(\/(similar|recommendations))?|tv\/\d+\/season\/\d+)$/.test(sub);
+  if (path.startsWith("/api/movies/") || (path.startsWith("/api/tmdb/") && path !== "/api/tmdb/episodes")) {
+    let sub = path.startsWith("/api/movies/") ? path.slice("/api/movies/".length).replace(/\/+$/, "") : path.slice("/api/tmdb/".length).replace(/\/+$/, "");
+    if (sub.startsWith("proxy/")) sub = sub.slice("proxy/".length);
+    const ok = /^(trending\/(all|movie|tv)\/(day|week)|(movie|tv)\/(popular|top_rated|now_playing|upcoming|airing_today|on_the_air)|discover\/(movie|tv)|search\/(movie|tv|multi)|(movie|tv)\/\d+(\/(credits|images|videos|similar|recommendations|external_ids|alternative_titles|release_dates|content_ratings|season\/\d+(\/episode\/\d+)?))?|tv\/\d+\/(episode_groups|season\/\d+(\/episode\/\d+)?)|tv\/episode_group\/[a-zA-Z0-9_-]+|genre\/(movie|tv)\/list|person\/\d+)$/.test(sub);
     if (!ok) return json({ error: "Unsupported path" }, 400);
     const qs = new URLSearchParams(url.searchParams);
     if (!qs.has("language")) qs.set("language", "en-US");
     qs.set("include_adult", "false");
     qs.sort();
     try {
-      const d = await cached(`movies:${sub}?${qs}`, 10 * 60e3, () => getJson(`${TMDB}/${sub}?${qs}`));
+      const d = await cached(`movies:${sub}?${qs}`, 10 * 60e3, () => tmdbFetch(`${sub}?${qs}`, env));
       return json(d, 200, 600);
     } catch {
       return json({ error: "TMDB is unavailable right now" }, 502);
@@ -804,7 +806,7 @@ export async function handle(request, env) {
 
     if (season === 1) {
       try {
-        const eg = await cached(`tmdb-eg:${id}`, 24 * 3600e3, () => getJson(`${TMDB}/tv/${id}/episode_groups`));
+        const eg = await cached(`tmdb-eg:${id}`, 24 * 3600e3, () => tmdbFetch(`tv/${id}/episode_groups`, env));
         const groups = eg?.results || [];
         const best =
           groups.find((g) => g.type === 2 && /no specials/i.test(g.name)) ||
@@ -813,7 +815,7 @@ export async function handle(request, env) {
           groups.find((g) => /absolute|correct order/i.test(g.name));
 
         if (best) {
-          const d = await cached(`tmdb-eps-grp:${best.id}`, 24 * 3600e3, () => getJson(`${TMDB}/tv/episode_group/${best.id}?language=en-US`));
+          const d = await cached(`tmdb-eps-grp:${best.id}`, 24 * 3600e3, () => tmdbFetch(`tv/episode_group/${best.id}?language=en-US`, env));
           const pool = (d.groups || []).filter((g) => !/special/i.test(g.name || "") && g.order !== 0);
           const list = pool.length ? pool : d.groups || [];
           let chosen = [];
@@ -844,7 +846,7 @@ export async function handle(request, env) {
     }
 
     try {
-      const d = await cached(`tmdb-eps:${id}:${season}`, 24 * 3600e3, () => getJson(`${TMDB}/tv/${id}/season/${season}?language=en-US`));
+      const d = await cached(`tmdb-eps:${id}:${season}`, 24 * 3600e3, () => tmdbFetch(`tv/${id}/season/${season}?language=en-US`, env));
       const episodes = (d.episodes || []).map((e) => ({ n: e.episode_number, name: e.name || null, overview: e.overview || null, still: e.still_path || null, runtime: e.runtime || null, air: e.air_date || null }));
       return json({ success: true, episodes }, 200, 86400);
     } catch {
