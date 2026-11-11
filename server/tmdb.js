@@ -2,12 +2,12 @@
 // Performs server-side TMDB fetching using Cloudflare environment variables:
 // - TMDB_API_KEY
 // - TMDB_BEARER_TOKEN (or TMDB_API_READ_ACCESS_TOKEN)
-// Falls back to built-in credentials or the resilient proxy if env is unset.
+// Falls back to built-in credentials or the resilient Lovable proxy if env is unset.
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 export const TMDB_API_BASE = "https://api.themoviedb.org/3";
 export const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
-export const TMDB_FALLBACK = "https://aniversee.vercel.app/api/tmdb";
+export const TMDB_FALLBACK = "https://webpage-launchpad.lovable.app/api/public/proxy";
 
 export const DEFAULT_TMDB_BEARER_TOKEN =
   "eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJjN2RiNjE2OWJmZGQzZmM5ZjdkZDZjNDRlYThhZDEwMCIsIm5iZiI6MTc1NDM3NjY0MC40MDYwMDAxLCJzdWIiOiI2YWY0MDNjOWI4YTRlMzU1YjYzNGVkOTciLCJzY29wZXMiOlsicXBsX3JlYWQiXSwidmVyc2lvbiI6MX0.ww3C_pAWxT63xXVM9OAkq8aSEyFhmyA5VaobbE-E0y4";
@@ -50,26 +50,41 @@ export async function tmdbFetch(endpoint, env = null) {
         Authorization: `Bearer ${token}`,
         "User-Agent": UA,
       },
+      signal: AbortSignal.timeout(4000),
     });
     if (res.ok) {
       return await res.json();
     }
-  } catch (_e) {
-    // Cloudflare edge has direct server-side connectivity to TMDB
-  }
+  } catch (_e) {}
 
-  // Tier 2: Resilient proxy fallback
+  // Tier 2: Resilient proxy fallback via Lovable Edge Proxy
   try {
-    const fallbackClean = clean.replace(/[?&]api_key=[^&]+/, "");
-    const fallbackUrl = `${TMDB_FALLBACK}/${fallbackClean}`;
+    const fallbackUrl = `${TMDB_FALLBACK}?url=${encodeURIComponent(directUrl)}`;
     const res = await fetch(fallbackUrl, {
       headers: {
         Accept: "application/json",
+        Authorization: `Bearer ${token}`,
         "User-Agent": UA,
       },
+      signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
       return await res.json();
+    }
+  } catch (_e) {}
+
+  // Tier 3: Resilient midman fallback via Railway
+  try {
+    const railwayUrl = `https://zenkai-movies-production.up.railway.app/api/movies/${clean}`;
+    const res = await fetch(railwayUrl, {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && !data.error) return data;
     }
   } catch (_e) {}
 

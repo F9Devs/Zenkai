@@ -774,8 +774,22 @@ export async function handle(request, env) {
     )?.replace(/\/+$/, "");
 
     try {
-      const res = await cached(`mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`, 10 * 60e3, async () => {
-        if (midmanUrl) {
+      const cacheKey = `mb:${tmdbId}:${type}:${season}:${episode}:${dubId || "default"}`;
+      const hit = memo.get(cacheKey);
+      let res = null;
+
+      if (hit && Date.now() - hit.at < 10 * 60e3 && hit.v?.success === true && hit.v?.streams?.length > 0) {
+        res = hit.v;
+      } else {
+        // Tier 1: Local edge MovieBox resolver (fast, direct, robust on Cloudflare Pages)
+        try {
+          res = await resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl });
+        } catch (localErr) {
+          console.warn("[MovieBox] Local resolver error, falling back to midman:", localErr.message);
+        }
+
+        // Tier 2: Railway Midman fallback if local returned no streams
+        if ((!res || !res.success || !res.streams?.length) && midmanUrl && !q("no_midman")) {
           try {
             const extQs = new URLSearchParams({
               id: String(tmdbId || 0),
@@ -795,16 +809,29 @@ export async function handle(request, env) {
             }).catch(() => fetch(railwayStream, { headers: { "Accept": "application/json" }, signal: AbortSignal.timeout(10000) }));
             if (extResp.ok) {
               const extData = await extResp.json().catch(() => null);
-              if (extData && (extData.success || extData.embedServers?.length)) {
-                return extData;
+              if (extData && extData.success === true && extData.streams?.length > 0) {
+                res = extData;
               }
             }
           } catch (extErr) {
-            console.warn("[MovieBox] Midman service fetch error, falling back to local resolver:", extErr.message);
+            console.warn("[MovieBox] Midman service fetch error:", extErr.message);
           }
         }
-        return resolveMovieBoxStream({ tmdbId, type, season, episode, title, year, dubId, proxyBase, midmanUrl });
-      });
+
+        // Only cache in memory when valid streams were successfully found
+        if (res && res.success === true && res.streams?.length > 0) {
+          memo.set(cacheKey, { at: Date.now(), v: res });
+        }
+      }
+
+      if (!res || !res.success) {
+        res = {
+          success: false,
+          error: res?.error || `No streams found for ${title || tmdbId}`,
+          server: "MovieBox",
+          streams: []
+        };
+      }
 
       // Subtitles lookup
       let subtitles = [];
